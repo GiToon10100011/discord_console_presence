@@ -17,7 +17,7 @@ use cache::{CacheEntry, ImageCache};
 /// Identifies the app to the servers it talks to (Wikimedia requires a
 /// descriptive User-Agent with a way to reach the maintainer).
 pub const USER_AGENT: &str =
-    "ConsolePresence/0.1 (+https://github.com/GiToon10100011/discord_game_adapter)";
+    "ConsolePresence/0.1 (+https://github.com/GiToon10100011/discord_console_presence)";
 
 /// Upper bound for any image the app stores (download or local file).
 pub const MAX_IMAGE_BYTES: u64 = 10 * 1024 * 1024;
