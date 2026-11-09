@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+mod discord;
 mod error;
 mod image;
 mod session;
