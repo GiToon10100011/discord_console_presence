@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "console-presence",
+  "productName": "Console Presence",
   "version": "0.1.0",
   "identifier": "com.consolepresence.app",
   "build": {
@@ -12,24 +12,38 @@
   "app": {
     "windows": [
       {
-        "title": "console-presence",
-        "width": 800,
-        "height": 600
+        "label": "main",
+        "title": "Console Presence",
+        "width": 1180,
+        "height": 780,
+        "minWidth": 920,
+        "minHeight": 620,
+        "center": true
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost",
+      "devCsp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost ws://localhost:1420 ws://localhost:1421 http://localhost:1420",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPCACHE/images/**", "$APPDATA/uploads/**"]
+      }
     }
   },
   "bundle": {
     "active": true,
     "targets": "all",
+    "category": "Utility",
+    "shortDescription": "Show your console game on Discord with Rich Presence",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    }
   }
 }
