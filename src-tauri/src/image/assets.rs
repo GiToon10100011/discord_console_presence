@@ -1,5 +1,8 @@
 use std::{
-    sync::Mutex,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Mutex,
+    },
     time::{Duration, Instant},
 };
 
@@ -8,7 +11,7 @@ use serde_json::Value;
 
 use crate::{
     error::{AppError, Result},
-    util::lock,
+    util::{lock, now_ms},
 };
 
 pub const API_BASE: &str = "https://discord.com/api/v10";
@@ -80,6 +83,16 @@ pub fn parse_assets(body: &str) -> Result<Vec<AppAsset>> {
         .collect())
 }
 
+/// Discord serves the asset list through a CDN that keeps responses for up to
+/// 10 minutes (`cache-control: s-maxage=600`), so a plain request does not
+/// show an asset that was uploaded a moment ago. Observed: the same request
+/// returned 1 asset, and with an extra query string 2. A unique query string
+/// always reaches the origin.
+fn cache_buster() -> String {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    format!("{}-{}", now_ms(), COUNTER.fetch_add(1, Ordering::Relaxed))
+}
+
 /// Where Discord serves a registered asset's image, so it can be previewed.
 pub fn asset_image_url(app_id: &str, asset_id: &str) -> String {
     format!("{CDN_BASE}/app-assets/{app_id}/{asset_id}.png")
@@ -115,9 +128,14 @@ impl AssetCatalog {
             }
         }
 
-        let url = format!("{}/oauth2/applications/{app_id}/assets", self.base);
+        let url = format!(
+            "{}/oauth2/applications/{app_id}/assets?cb={}",
+            self.base,
+            cache_buster()
+        );
         let response = client
             .get(&url)
+            .header(reqwest::header::CACHE_CONTROL, "no-cache")
             .send()
             .await
             .map_err(|e| AppError::Network(format!("Discord에 연결하지 못했습니다: {e}")))?;
@@ -208,7 +226,9 @@ mod tests {
     #[tokio::test]
     async fn lists_and_caches_assets() {
         let server = TestServer::start(|req| {
-            assert!(req.target.ends_with("/oauth2/applications/123456789012345678/assets"));
+            assert!(req
+                .target
+                .starts_with("/oauth2/applications/123456789012345678/assets"));
             Response::ok(SAMPLE)
         });
         let catalog = AssetCatalog::with_base(&server.base);
@@ -220,6 +240,27 @@ mod tests {
         assert_eq!(server.hits(), 1, "second call is served from the cache");
         catalog.list(&client, "123456789012345678", true).await.unwrap();
         assert_eq!(server.hits(), 2, "force bypasses the cache");
+    }
+
+    #[tokio::test]
+    async fn every_request_bypasses_the_discord_cdn_cache() {
+        // Discord's CDN answers with a list that can be 10 minutes old, which
+        // made a freshly uploaded asset look unregistered.
+        let server = TestServer::start(|req| {
+            assert_eq!(req.header("cache-control"), Some("no-cache"));
+            Response::ok(SAMPLE)
+        });
+        let catalog = AssetCatalog::with_base(&server.base);
+        let client = reqwest::Client::new();
+        catalog.list(&client, "123456789012345678", true).await.unwrap();
+        catalog.list(&client, "123456789012345678", true).await.unwrap();
+
+        let targets = server.requests.lock().unwrap().clone();
+        assert_eq!(targets.len(), 2);
+        for target in &targets {
+            assert!(target.contains("?cb="), "no cache-busting query in {target}");
+        }
+        assert_ne!(targets[0], targets[1], "each request must have its own query string");
     }
 
     #[tokio::test]

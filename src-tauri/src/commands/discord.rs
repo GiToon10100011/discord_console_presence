@@ -145,7 +145,9 @@ pub async fn check_asset_key(state: Shared<'_>, key: String) -> Result<AssetChec
             message: "Application ID를 설정하면 등록 여부를 확인할 수 있습니다.".into(),
         });
     }
-    Ok(match state.assets.list(&state.http, &id, false).await {
+    // Always re-read the list: this is clicked right after uploading an asset,
+    // and the cached copy (or an older one) would still say "missing".
+    Ok(match state.assets.list(&state.http, &id, true).await {
         Ok(assets) if assets.iter().any(|a| a.name.to_lowercase() == key) => AssetCheck {
             status: AssetStatus::Registered,
             message: "Developer Portal에 등록되어 있습니다.".into(),

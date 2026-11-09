@@ -61,8 +61,10 @@ export function useImageView(spec: ImageSpec | null | undefined, version: number
     setLoading(true);
     limited(() => api.getImageView(spec))
       .then((next) => {
-        // Failures are not remembered, so a later attempt can succeed.
-        if (next.status !== "error") views.set(key, next);
+        // Only settled answers are remembered. "Unavailable" and errors are
+        // not: an asset that was missing a moment ago may have been uploaded
+        // since, and a later attempt should be able to succeed.
+        if (next.status === "ready" || next.status === "none") views.set(key, next);
         if (!cancelled) setView(next);
       })
       .catch((error: unknown) => {

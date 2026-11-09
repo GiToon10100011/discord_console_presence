@@ -123,7 +123,14 @@ export function ImagePicker({
                   <Button
                     busy={busy === "check"}
                     disabled={!value.assetKey?.trim()}
-                    onClick={() => run("check", async () => setCheck(await api.checkAssetKey(value.assetKey ?? "")))}
+                    onClick={() =>
+                      run("check", async () => {
+                        const result = await api.checkAssetKey(value.assetKey ?? "");
+                        setCheck(result);
+                        // The list was just re-read: previews that said "not registered" can retry.
+                        if (result.status === "registered") bumpImages();
+                      })
+                    }
                   >
                     <ShieldCheck className="size-4" /> 확인
                   </Button>

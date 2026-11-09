@@ -61,6 +61,7 @@ Discord 데스크톱 앱이 켜져 있어야 합니다. 나중에 켜거나 재�
 1. Developer Portal → 앱 → **Rich Presence → Art Assets** → 이미지를 업로드합니다 (1024×1024 권장, 앱당 최대 300개).
 2. **에셋 이름이 Asset Key**입니다. 포털이 소문자로 저장하므로 소문자로 쓰세요.
 3. 앱에서 게임의 **Asset Key**에 같은 이름을 입력하고 **확인**을 누르면 등록 여부를 검사합니다. 기본 게임 8종은 `pokemon-za`, `mario-kart-world`, `zelda-totk`, `smash-ultimate`, `persona-5-royal`, `elden-ring`, `monster-hunter-wilds`, `cyberpunk-2077` 키를 기대합니다. 업로드하지 않았다면 기본 이미지로 대체되고 경고가 표시됩니다.
+   방금 올린 에셋도 **확인**이 바로 인식합니다. Discord의 에셋 목록 주소는 CDN이 응답을 최대 10분 캐시해서(`s-maxage=600`) 일반 요청으로는 새 에셋이 한참 뒤에 보이는데, 앱은 캐시를 우회해서 조회합니다.
 
 > 커버 이미지는 이 저장소에 포함하지 않습니다. 게임 커버는 저작물이므로 각자 가진 이미지를 직접 업로드하세요.
 
