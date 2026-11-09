@@ -46,9 +46,6 @@ export interface Settings {
   fallbackImageUrl: string;
   overrideActivityName: boolean;
   imageCacheMaxMb: number;
-  streamUrl: string;
-  streamLabel: string;
-  streamButtonLabel: string;
 }
 
 export interface PresenceConfig {
@@ -60,7 +57,6 @@ export interface PresenceConfig {
   smallImage: ImageSpec;
   smallImageText: string;
   startTimestamp: number | null;
-  live: boolean;
 }
 
 export interface Session {

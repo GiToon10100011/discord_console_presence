@@ -1,5 +1,4 @@
-import { Button, Field, Input, Section, Toggle } from "../../components/ui";
-import { useApp } from "../../hooks/AppContext";
+import { Button, Field, Input, Section } from "../../components/ui";
 import { fromLocalInput, toLocalInput } from "../../lib/format";
 import type { PresenceConfig } from "../../types";
 import { ImagePicker } from "../image-manager/ImagePicker";
@@ -17,7 +16,6 @@ export function PresenceEditor({
   /** Start of the running session, shown when no custom start is set. */
   sessionStart: number | null;
 }) {
-  const { settings } = useApp();
   const set = (changes: Partial<PresenceConfig>) => onChange({ ...config, ...changes });
   const effectiveStart = config.startTimestamp ?? sessionStart;
 
@@ -76,16 +74,6 @@ export function PresenceEditor({
             </div>
           </Field>
         </div>
-        <Toggle
-          checked={config.live}
-          onChange={(live) => set({ live })}
-          label="방송 중으로 표시"
-          hint={
-            settings.streamUrl
-              ? "상태 줄에 '🔴 방송 중'을 붙이고, 그 글자와 큰 이미지를 방송 주소로 연결하며, 버튼을 추가합니다 (버튼은 다른 사람에게만 보입니다)."
-              : "상태 줄에 '🔴 방송 중' 같은 문구만 표시합니다 (화면 공유용). Twitch 등에 송출한다면 설정 → 방송에 주소를 넣으면 링크와 버튼이 붙습니다."
-          }
-        />
       </Section>
 
       <Section

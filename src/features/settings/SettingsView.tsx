@@ -168,59 +168,6 @@ export function SettingsView() {
         </Field>
       </Section>
 
-      <Section
-        title="방송 (OBS 등)"
-        description="게임 상세에서 '방송 중으로 표시'를 켜면 Discord 카드의 상태 줄에 🔴 문구가 붙습니다. 화면 공유(Go Live)만 한다면 주소는 비워 두세요."
-      >
-        <Field
-          label="방송 주소"
-          hint="선택 사항입니다. Twitch·YouTube·치지직·SOOP 같은 방송 플랫폼에 송출할 때만 넣으세요. 상태 문구, 큰 이미지, 버튼이 이 주소로 연결됩니다."
-        >
-          <Input
-            value={draft.streamUrl}
-            onChange={(e) => set({ streamUrl: e.target.value })}
-            placeholder="https://www.twitch.tv/내채널"
-            inputMode="url"
-            spellCheck={false}
-          />
-        </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="상태 문구" hint="🔴 뒤에 붙는 글">
-            <Input
-              value={draft.streamLabel}
-              maxLength={32}
-              onChange={(e) => set({ streamLabel: e.target.value })}
-            />
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {["방송 중", "화면 공유 중", "Go Live"].map((label) => (
-                <Button
-                  key={label}
-                  size="sm"
-                  variant={draft.streamLabel === label ? "primary" : "ghost"}
-                  onClick={() => set({ streamLabel: label })}
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
-          </Field>
-          <Field label="버튼 문구">
-            <Input
-              value={draft.streamButtonLabel}
-              maxLength={32}
-              onChange={(e) => set({ streamButtonLabel: e.target.value })}
-            />
-          </Field>
-        </div>
-        <Banner kind="info">
-          <p>
-            Discord는 공식 ‘스트리밍’ 활동을 앱에서 보내는 것을 허용하지 않아(실제 Discord로 확인) 문구로 표시합니다.
-            화면 공유(Go Live) 때 Discord가 직접 붙이는 ‘LIVE’나 공유 중인 프로그램 이름(예: OBS)은 앱이 바꿀 수 없습니다.
-            버튼은 <b>다른 사람에게만 보이고 본인 프로필에는 보이지 않습니다.</b>
-          </p>
-        </Banner>
-      </Section>
-
       <Section title="기본 게임 상태" description="게임에 Details/State가 비어 있을 때 사용합니다.">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Details">

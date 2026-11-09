@@ -82,9 +82,6 @@ export function installDevMock() {
     fallbackImageUrl: "",
     overrideActivityName: true,
     imageCacheMaxMb: 200,
-    streamUrl: "https://www.twitch.tv/example",
-    streamLabel: "방송 중",
-    streamButtonLabel: "방송 보러 가기",
   };
   let games: Game[] = [
     seed("pokemon-za", "Pokémon Legends: Z-A", "Nintendo Switch 2", "Story Progress", "Lumiose City"),
@@ -127,7 +124,6 @@ export function installDevMock() {
     smallImage: game.smallImage ?? { source: "default" },
     smallImageText: game.smallImageText ?? game.platform,
     startTimestamp: null,
-    live: false,
   });
 
   const setDiscord = (changes: Partial<DiscordStatus>) => {

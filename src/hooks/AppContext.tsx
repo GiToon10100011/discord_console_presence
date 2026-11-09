@@ -41,9 +41,6 @@ export const DEFAULT_SETTINGS: Settings = {
   fallbackImageUrl: "",
   overrideActivityName: true,
   imageCacheMaxMb: 200,
-  streamUrl: "",
-  streamLabel: "방송 중",
-  streamButtonLabel: "방송 보러 가기",
 };
 
 const IDLE_STATUS: DiscordStatus = {
