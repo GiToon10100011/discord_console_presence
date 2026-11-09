@@ -24,6 +24,19 @@ body,
   height: 100%;
 }
 
+@layer base {
+  /* Tailwind v4 resets buttons to the plain arrow cursor, so nothing looked
+     clickable. Anything that can be clicked shows the hand. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="switch"],
+  summary,
+  select,
+  input[type="range"] {
+    cursor: pointer;
+  }
+}
+
 body {
   margin: 0;
   background: var(--color-bg);

@@ -1,7 +1,7 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ExternalLink, FlaskConical, FolderOpen, Plug, Trash2, Unplug } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { ArrowLeft, ExternalLink, FlaskConical, FolderOpen, Plug, Trash2, Unplug } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Banner, Button, Field, Input, Section, Select, Toggle } from "../../components/ui";
 import { connectionLabel, useApp } from "../../hooks/AppContext";
@@ -11,16 +11,40 @@ import type { AppInfo, CacheOverview, ConnectionTest, ImageSource, Settings } fr
 
 const PORTAL = "https://discord.com/developers/applications";
 
-export function SettingsView() {
+// Edits that were not saved when the user left this screen. Going back and
+// forth between the library and the settings must not silently throw them away.
+let unsaved: { base: Settings; draft: Settings } | null = null;
+
+export function SettingsView({ onBack }: { onBack: () => void }) {
   const { settings, saveSettings, connect, disconnect, discord, toast, bumpImages } = useApp();
-  const [draft, setDraft] = useState<Settings>(settings);
+  const [draft, setDraft] = useState<Settings>(() =>
+    unsaved && JSON.stringify(unsaved.base) === JSON.stringify(settings) ? unsaved.draft : settings,
+  );
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  useEffect(
+    () => () => {
+      const changed = JSON.stringify(draftRef.current) !== JSON.stringify(settingsRef.current);
+      unsaved = changed ? { base: settingsRef.current, draft: draftRef.current } : null;
+    },
+    [],
+  );
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [test, setTest] = useState<ConnectionTest | null>(null);
   const [cache, setCache] = useState<CacheOverview | null>(null);
   const [info, setInfo] = useState<AppInfo | null>(null);
 
-  useEffect(() => setDraft(settings), [settings]);
+  // Follow the saved settings, but do not reset a draft restored on mount.
+  const lastSettings = useRef(settings);
+  useEffect(() => {
+    if (lastSettings.current !== settings) {
+      lastSettings.current = settings;
+      setDraft(settings);
+    }
+  }, [settings]);
 
   const refreshCache = useCallback(
     () => api.getImageCache().then(setCache).catch(() => undefined),
@@ -48,7 +72,12 @@ export function SettingsView() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-5 pb-24">
-      <h1 className="text-xl font-bold">설정</h1>
+      <div className="flex items-center gap-3">
+        <Button onClick={onBack}>
+          <ArrowLeft className="size-4" /> 라이브러리로 돌아가기
+        </Button>
+        <h1 className="text-xl font-bold">설정</h1>
+      </div>
 
       <Section
         title="Discord"

@@ -1,6 +1,7 @@
-import { Gamepad2, Settings as SettingsIcon } from "lucide-react";
+import { LayoutGrid, Settings as SettingsIcon } from "lucide-react";
 import { useState } from "react";
 
+import { Logo } from "./components/Logo";
 import { Banner, Button, cx } from "./components/ui";
 import { LibraryView } from "./features/game-library/LibraryView";
 import { GameDetail } from "./features/presence/GameDetail";
@@ -81,26 +82,34 @@ function Shell() {
   }
 
   const openSettings = () => setView({ kind: "settings" });
+  const goLibrary = () => setView({ kind: "library" });
 
   return (
     <div className="flex h-full flex-col">
       <header className="flex shrink-0 items-center justify-between gap-4 border-b border-line bg-panel px-6 py-3">
-        <button onClick={() => setView({ kind: "library" })} className="flex items-center gap-2.5">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-brand">
-            <Gamepad2 className="size-5 text-white" />
-          </span>
-          <span className="text-base font-bold tracking-tight">Console Presence</span>
-        </button>
-        <div className="flex items-center gap-2.5">
-          <StatusPill onClick={openSettings} />
-          <Button
-            variant={view.kind === "settings" ? "primary" : "ghost"}
-            onClick={openSettings}
-            aria-label="설정"
-          >
-            <SettingsIcon className="size-4" /> 설정
-          </Button>
+        <div className="flex items-center gap-4">
+          <button onClick={goLibrary} className="flex items-center gap-2.5" aria-label="홈 (라이브러리)">
+            <Logo className="size-8" />
+            <span className="text-base font-bold tracking-tight">Console Presence</span>
+          </button>
+          <nav className="flex items-center gap-1" aria-label="화면 이동">
+            <Button
+              variant={view.kind === "settings" ? "ghost" : "secondary"}
+              onClick={goLibrary}
+              aria-current={view.kind !== "settings" ? "page" : undefined}
+            >
+              <LayoutGrid className="size-4" /> 라이브러리
+            </Button>
+            <Button
+              variant={view.kind === "settings" ? "secondary" : "ghost"}
+              onClick={openSettings}
+              aria-current={view.kind === "settings" ? "page" : undefined}
+            >
+              <SettingsIcon className="size-4" /> 설정
+            </Button>
+          </nav>
         </div>
+        <StatusPill onClick={openSettings} />
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto">
@@ -123,7 +132,7 @@ function Shell() {
               onOpenSettings={openSettings}
             />
           )}
-          {view.kind === "settings" && <SettingsView />}
+          {view.kind === "settings" && <SettingsView onBack={goLibrary} />}
         </div>
       </main>
       <Toasts />
