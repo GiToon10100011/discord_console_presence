@@ -188,10 +188,19 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("discord-ipc-0");
         let listener = UnixListener::bind(&path).unwrap();
-        let server = std::thread::spawn(move || drop(listener.accept()));
+        // The server must keep the connection open until the client has set
+        // it up: on macOS, setting a timeout on a socket whose peer is already
+        // gone fails, which made this test flaky when the server closed first.
+        let (client_ready, wait_for_client) = std::sync::mpsc::channel::<()>();
+        let server = std::thread::spawn(move || {
+            let held = listener.accept();
+            let _ = wait_for_client.recv();
+            drop(held);
+        });
 
         let mut client = TimedClient::new("1", Duration::from_millis(500));
         client.connect_to(&path).unwrap();
+        client_ready.send(()).unwrap();
         server.join().unwrap();
         let error = client.recv().unwrap_err();
         assert!(!is_timeout(&error), "EOF is a lost connection: {error:?}");
