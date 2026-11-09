@@ -170,11 +170,11 @@ export function SettingsView() {
 
       <Section
         title="방송 (OBS 등)"
-        description="게임 상세에서 '방송 중으로 표시'를 켜면 Discord 카드에 🔴 방송 중 문구와 방송 링크가 붙습니다."
+        description="게임 상세에서 '방송 중으로 표시'를 켜면 Discord 카드의 상태 줄에 🔴 문구가 붙습니다. 화면 공유(Go Live)만 한다면 주소는 비워 두세요."
       >
         <Field
           label="방송 주소"
-          hint="Twitch·YouTube·치지직·SOOP 등 공개 https 주소. 상태 문구, 큰 이미지, 버튼이 이 주소로 연결됩니다."
+          hint="선택 사항입니다. Twitch·YouTube·치지직·SOOP 같은 방송 플랫폼에 송출할 때만 넣으세요. 상태 문구, 큰 이미지, 버튼이 이 주소로 연결됩니다."
         >
           <Input
             value={draft.streamUrl}
@@ -191,6 +191,18 @@ export function SettingsView() {
               maxLength={32}
               onChange={(e) => set({ streamLabel: e.target.value })}
             />
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {["방송 중", "화면 공유 중", "Go Live"].map((label) => (
+                <Button
+                  key={label}
+                  size="sm"
+                  variant={draft.streamLabel === label ? "primary" : "ghost"}
+                  onClick={() => set({ streamLabel: label })}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
           </Field>
           <Field label="버튼 문구">
             <Input
@@ -202,7 +214,8 @@ export function SettingsView() {
         </div>
         <Banner kind="info">
           <p>
-            Discord는 공식 ‘스트리밍’ 활동을 이 방식으로는 허용하지 않아(실제 Discord로 확인) 문구와 링크로 표시합니다.
+            Discord는 공식 ‘스트리밍’ 활동을 앱에서 보내는 것을 허용하지 않아(실제 Discord로 확인) 문구로 표시합니다.
+            화면 공유(Go Live) 때 Discord가 직접 붙이는 ‘LIVE’나 공유 중인 프로그램 이름(예: OBS)은 앱이 바꿀 수 없습니다.
             버튼은 <b>다른 사람에게만 보이고 본인 프로필에는 보이지 않습니다.</b>
           </p>
         </Banner>

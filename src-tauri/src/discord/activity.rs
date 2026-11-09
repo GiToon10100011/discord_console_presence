@@ -272,11 +272,10 @@ pub fn build_activity(
             None => badge,
         });
         let url = settings.stream_url.trim();
-        if url.is_empty() {
-            warnings.push(
-                "방송 주소가 비어 있어 링크와 버튼 없이 문구만 표시합니다 (설정 → 방송).".into(),
-            );
-        } else {
+        // An empty address is a valid setup, not a problem: the badge alone says
+        // "live", e.g. when sharing the screen in a call instead of
+        // broadcasting to a platform. Links and the button need an address.
+        if !url.is_empty() {
             match stream_link(url) {
                 Ok(link) => {
                     let name = clamp_text(&settings.stream_button_label, 32);
@@ -589,8 +588,10 @@ mod tests {
             build_activity(&live_config(), START, &live_settings(""), &known(&["pokemon-za"]));
         assert_eq!(payload.state.as_deref(), Some("🔴 방송 중 · Lumiose City"));
         assert_eq!((payload.state_url, payload.large_url, payload.button), (None, None, None));
-        assert_eq!(report.warnings.len(), 1);
-        assert!(report.warnings[0].contains("방송 주소"));
+        assert!(
+            report.warnings.is_empty(),
+            "text only is a valid setup (screen sharing), not something to warn about"
+        );
     }
 
     #[test]
