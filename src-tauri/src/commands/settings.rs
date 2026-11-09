@@ -22,6 +22,12 @@ pub fn get_settings(state: Shared<'_>) -> Settings {
 pub async fn update_settings(state: Shared<'_>, settings: Settings) -> Result<Settings> {
     let mut next = settings;
     next.sanitize()?;
+    // Fail here, with a clear message, instead of at the first export.
+    if !next.export_dir.is_empty() {
+        std::fs::create_dir_all(&next.export_dir).map_err(|e| {
+            AppError::Invalid(format!("내보내기 폴더를 사용할 수 없습니다: {e}"))
+        })?;
+    }
     let previous = state.settings_snapshot();
 
     if previous.launch_at_login != next.launch_at_login {
@@ -67,6 +73,10 @@ pub struct AppInfo {
     pub os: &'static str,
     pub data_dir: String,
     pub cache_dir: String,
+    /// Where cropped images go when the settings name no folder.
+    pub default_export_dir: String,
+    /// Where cropped images go right now.
+    pub export_dir: String,
 }
 
 #[tauri::command]
@@ -76,5 +86,7 @@ pub fn get_app_info(state: Shared<'_>) -> AppInfo {
         os: std::env::consts::OS,
         data_dir: state.paths.data_dir.to_string_lossy().into_owned(),
         cache_dir: state.paths.cache_dir.to_string_lossy().into_owned(),
+        default_export_dir: state.default_export_dir().to_string_lossy().into_owned(),
+        export_dir: state.export_dir().to_string_lossy().into_owned(),
     }
 }

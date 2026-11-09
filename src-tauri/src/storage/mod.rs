@@ -45,18 +45,14 @@ impl AppPaths {
         self.cache_dir.join("images")
     }
 
-    /// Cropped images ready to be uploaded to the Developer Portal.
+    /// Fallback export folder for when the system has no Pictures folder.
+    /// Earlier versions exported here, so it stays openable.
     pub fn exports_dir(&self) -> PathBuf {
         self.data_dir.join("exports")
     }
 
     pub fn ensure(&self) -> Result<()> {
-        for dir in [
-            &self.data_dir,
-            &self.uploads_dir(),
-            &self.images_dir(),
-            &self.exports_dir(),
-        ] {
+        for dir in [&self.data_dir, &self.uploads_dir(), &self.images_dir()] {
             fs::create_dir_all(dir)?;
         }
         Ok(())

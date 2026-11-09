@@ -133,7 +133,7 @@ pub async fn export_cropped_image(
     name: String,
 ) -> Result<ExportedImage> {
     let source = state.source_file(&spec).await?;
-    let dir = state.paths.exports_dir();
+    let dir = state.export_dir();
     let file_name = format!("{}.png", crate::image::crop::safe_name(&name));
     let name_for_job = file_name.clone();
     let exported = tauri::async_runtime::spawn_blocking(move || {
@@ -149,6 +149,19 @@ pub async fn export_cropped_image(
     })
 }
 
+/// Opens the export folder in the file manager, creating it first if the
+/// first export has not happened yet. Returns the folder's path.
+#[tauri::command]
+pub fn open_export_dir(app: AppHandle, state: Shared<'_>) -> Result<String> {
+    let dir = state.export_dir();
+    std::fs::create_dir_all(&dir)?;
+    let path = dir.to_string_lossy().into_owned();
+    app.opener()
+        .open_path(path.clone(), None::<&str>)
+        .map_err(|e| AppError::Io(std::io::Error::other(e.to_string())))?;
+    Ok(path)
+}
+
 /// Opens the file manager at an image the app manages (e.g. to drag it into
 /// the Developer Portal). Only the app's own image folders are allowed.
 #[tauri::command]
@@ -157,7 +170,8 @@ pub fn reveal_path(app: AppHandle, state: Shared<'_>, path: String) -> Result<()
     let allowed = [
         state.paths.images_dir(),
         state.paths.uploads_dir(),
-        state.paths.exports_dir(),
+        state.paths.exports_dir(), // where earlier versions exported
+        state.export_dir(),
     ]
         .iter()
         .filter_map(|dir| dir.canonicalize().ok())

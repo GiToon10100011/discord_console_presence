@@ -286,6 +286,8 @@ pub struct Settings {
     /// the registered application name.
     pub override_activity_name: bool,
     pub image_cache_max_mb: u32,
+    /// Folder for cropped images. Empty means the default (`Pictures/Console Presence`).
+    pub export_dir: String,
 }
 
 impl Default for Settings {
@@ -303,6 +305,7 @@ impl Default for Settings {
             fallback_image_url: String::new(),
             override_activity_name: true,
             image_cache_max_mb: 200,
+            export_dir: String::new(),
         }
     }
 }
@@ -324,6 +327,17 @@ impl Settings {
         self.fallback_image_url = self.fallback_image_url.trim().to_string();
         if !self.fallback_image_url.is_empty() {
             parse_http_url(&self.fallback_image_url)?;
+        }
+        self.export_dir = self.export_dir.trim().to_string();
+        if !self.export_dir.is_empty() {
+            if !std::path::Path::new(&self.export_dir).is_absolute() {
+                return Err(AppError::Invalid(
+                    "내보내기 폴더는 전체 경로여야 합니다. '폴더 선택'으로 지정하세요.".into(),
+                ));
+            }
+            if self.export_dir.chars().count() > 1024 {
+                return Err(AppError::Invalid("내보내기 폴더 경로가 너무 깁니다.".into()));
+            }
         }
         self.auto_clear_hours = self.auto_clear_hours.min(168);
         self.image_cache_max_mb = self.image_cache_max_mb.clamp(16, 2048);
@@ -457,6 +471,31 @@ mod tests {
 
         s.fallback_image_url = "javascript:alert(1)".into();
         assert!(s.sanitize().is_err());
+    }
+
+    #[test]
+    fn export_dir_is_empty_or_an_absolute_path() {
+        let mut s = Settings::default();
+        assert_eq!(s.export_dir, "", "empty means the default folder");
+        s.export_dir = "   ".into();
+        s.sanitize().unwrap();
+        assert_eq!(s.export_dir, "");
+
+        for bad in ["relative/dir", "~/Pictures", "./x", "exports"] {
+            let mut s = Settings {
+                export_dir: bad.into(),
+                ..Settings::default()
+            };
+            assert!(s.sanitize().is_err(), "{bad} is not a full path");
+        }
+
+        let absolute = std::env::temp_dir().to_string_lossy().into_owned();
+        s.export_dir = format!("  {absolute}  ");
+        s.sanitize().unwrap();
+        assert_eq!(s.export_dir, absolute, "surrounding spaces are trimmed");
+
+        s.export_dir = format!("{absolute}/{}", "a".repeat(1100));
+        assert!(s.sanitize().is_err(), "absurdly long paths are refused");
     }
 
     #[test]

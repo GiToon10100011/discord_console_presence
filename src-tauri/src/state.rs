@@ -42,6 +42,18 @@ pub struct AppState {
     pub assets: AssetCatalog,
     pub covers: CoverFinder,
     report: Mutex<PresenceReport>,
+    /// Used when the settings do not name an export folder.
+    default_export_dir: std::path::PathBuf,
+}
+
+/// The folder cropped images go to: the one from the settings, or the default.
+pub fn effective_export_dir(configured: &str, default: &Path) -> std::path::PathBuf {
+    let configured = configured.trim();
+    if configured.is_empty() {
+        default.to_path_buf()
+    } else {
+        std::path::PathBuf::from(configured)
+    }
 }
 
 /// The presence a game starts with: its own values, then the app-wide
@@ -84,6 +96,13 @@ impl AppState {
             cache_dir: app.path().app_cache_dir().map_err(path_error)?,
         };
         paths.ensure()?;
+        // Pictures/Console Presence is easy to find; the app's own data folder
+        // is hidden (Library on macOS, AppData on Windows).
+        let default_export_dir = app
+            .path()
+            .picture_dir()
+            .map(|dir| dir.join("Console Presence"))
+            .unwrap_or_else(|_| paths.exports_dir());
 
         let settings_store = JsonStore::<Settings>::new(paths.settings_file());
         let mut settings = settings_store.load();
@@ -125,6 +144,7 @@ impl AppState {
             assets: AssetCatalog::default(),
             covers: CoverFinder::default(),
             report: Mutex::new(PresenceReport::default()),
+            default_export_dir,
         })
     }
 
@@ -347,6 +367,14 @@ impl AppState {
         }
     }
 
+    pub fn export_dir(&self) -> std::path::PathBuf {
+        effective_export_dir(&self.settings_snapshot().export_dir, &self.default_export_dir)
+    }
+
+    pub fn default_export_dir(&self) -> &Path {
+        &self.default_export_dir
+    }
+
     /// The original file behind an image setting, for tools that need the
     /// full-size pixels (cropping). A remote image is downloaded into the cache.
     pub async fn source_file(&self, spec: &ImageSpec) -> Result<std::path::PathBuf> {
@@ -412,6 +440,18 @@ mod tests {
             asset_key: Some("elden-ring".into()),
             ..Game::default()
         }
+    }
+
+    #[test]
+    fn the_export_folder_is_the_setting_or_else_the_default() {
+        let default = Path::new("/home/me/Pictures/Console Presence");
+        assert_eq!(effective_export_dir("", default), default);
+        assert_eq!(effective_export_dir("   ", default), default, "blank means default");
+        assert_eq!(
+            effective_export_dir(" /data/covers ", default),
+            Path::new("/data/covers"),
+            "a configured folder wins and is trimmed"
+        );
     }
 
     #[test]
