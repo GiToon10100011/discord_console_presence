@@ -29,8 +29,9 @@ Discord가 공식 문서화한 **Rich Presence RPC(로컬 IPC)** 로 게임 이�
 | Tauri 앱 창에서 Application ID를 입력해 연결하고 게임을 시작해 Discord에 표시 (`npm run tauri dev`, macOS) | ✅ 사용자가 직접 실행해 확인 |
 | 게임을 바꿀 때의 이미지 교체 | ❌ **미검증** — 등록된 에셋이 1개뿐이라 확인할 수 없었습니다 |
 | 실제 Discord가 응답하지 않을 때(요청 제한) 워커가 멈추지 않음 | ✅ 실제 Discord에서 결함을 발견해 수정·확인 |
-| 실제 Discord를 껐다 켰을 때의 재연결·Presence 복원 | ❌ 미검증 (가짜 IPC 서버로는 검증됨) |
-| Windows 빌드·실행 (named pipe 포함) | ❌ **미검증** — Windows 환경에서 실행하지 못했습니다 |
+| 실제 Discord를 껐다 켰을 때의 재연결·Presence 복원 (macOS) | ✅ 사용자가 직접 실행해 확인 |
+| Windows 빌드 — GitHub Actions(`windows-latest`)에서 타입 검사·Rust 테스트·`tauri build`가 모두 통과하고 `.msi`와 `-setup.exe`가 만들어짐 | ✅ CI로 확인 (설치 파일을 받아 실행해 본 것은 아님) |
+| Windows에서 앱 실행과 Discord 연결 (named pipe) | ❌ **미검증** — Windows PC에서 실행해 보지 못했습니다 |
 | 로그인 시 자동 실행 (autostart) | ❌ 미검증 |
 
 미검증 항목은 `cargo run --example live_check`로 직접 확인할 수 있습니다 ([아래](#실제-discord로-검증하기)).
@@ -119,7 +120,11 @@ npm install
 npm run tauri build                  # 모든 번들 (.app, .dmg)
 npm run tauri build -- --bundles app # .app만
 ```
-결과물: `src-tauri/target/release/bundle/macos/Console Presence.app`. 서명·공증을 하지 않은 빌드는 처음 열 때 *시스템 설정 → 개인정보 보호 및 보안*에서 허용해야 할 수 있습니다.
+결과물 (Apple Silicon에서 확인):
+- `src-tauri/target/release/bundle/macos/Console Presence.app`
+- `src-tauri/target/release/bundle/dmg/Console Presence_0.1.0_aarch64.dmg`
+
+Intel Mac용은 그 Mac에서 빌드하세요. 서명·공증을 하지 않았으므로, 다른 곳에서 내려받은 `.app`은 처음 열 때 차단될 수 있습니다 (*우클릭 → 열기*, 또는 `xattr -dr com.apple.quarantine "/Applications/Console Presence.app"`).
 
 ### Windows
 Windows PC에서:
@@ -127,7 +132,8 @@ Windows PC에서:
 npm install
 npm run tauri build
 ```
-결과물: `src-tauri\target\release\bundle\` 아래 `.msi`(WiX) / `-setup.exe`(NSIS). 크로스 컴파일은 지원하지 않으니 Windows 머신이나 CI가 필요합니다. `.github/workflows/build.yml`이 macOS·Windows 러너에서 같은 빌드를 실행하도록 설정되어 있습니다(아직 실행해 보지 않았습니다).
+결과물: `src-tauri\target\release\bundle\` 아래 `.msi`(WiX) / `-setup.exe`(NSIS). 크로스 컴파일은 지원하지 않으니 Windows 머신이나 CI가 필요합니다. `.github/workflows/build.yml`이 push마다 macOS·Windows 러너에서 타입 검사·Rust 테스트·번들 빌드를 실행하고 설치 파일을 **아티팩트**로 올립니다. GitHub 저장소 → **Actions** → 실행 선택 → 맨 아래 **Artifacts**에서 내려받을 수 있습니다 (`console-presence-windows-latest` 안에 `nsis/…-setup.exe`와 `msi/….msi`, 약 90일 보관). 아티팩트는 *Release*가 아니라서 Releases 탭에는 나타나지 않습니다.
+서명하지 않은 설치 파일이라 Windows SmartScreen이 "알 수 없는 게시자" 경고를 띄울 수 있습니다(*추가 정보 → 실행*).
 TLS는 두 OS 모두 시스템 구현(`native-tls`: Security.framework / SChannel)을 써서 별도 C 빌드 도구가 필요 없습니다.
 
 ## 개발
