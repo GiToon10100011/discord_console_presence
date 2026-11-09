@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 mod error;
+mod image;
 mod session;
 mod storage;
 mod util;
