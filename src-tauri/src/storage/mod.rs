@@ -45,8 +45,18 @@ impl AppPaths {
         self.cache_dir.join("images")
     }
 
+    /// Cropped images ready to be uploaded to the Developer Portal.
+    pub fn exports_dir(&self) -> PathBuf {
+        self.data_dir.join("exports")
+    }
+
     pub fn ensure(&self) -> Result<()> {
-        for dir in [&self.data_dir, &self.uploads_dir(), &self.images_dir()] {
+        for dir in [
+            &self.data_dir,
+            &self.uploads_dir(),
+            &self.images_dir(),
+            &self.exports_dir(),
+        ] {
             fs::create_dir_all(dir)?;
         }
         Ok(())

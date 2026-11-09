@@ -112,12 +112,53 @@ pub async fn search_game_cover(state: Shared<'_>, query: String) -> Result<Vec<C
     state.covers.search(&state.http, &query).await
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportedImage {
+    pub path: String,
+    pub file_name: String,
+    pub size: u32,
+    pub bytes: u64,
+}
+
+/// Cuts a square out of an image and saves it as a 1024×1024 PNG in the app's
+/// exports folder, ready to be uploaded to the Developer Portal. Discord has
+/// no upload API (and the app never uses an account token), so the upload
+/// itself is the one manual step.
+#[tauri::command]
+pub async fn export_cropped_image(
+    state: Shared<'_>,
+    spec: ImageSpec,
+    crop: crate::image::crop::CropRect,
+    name: String,
+) -> Result<ExportedImage> {
+    let source = state.source_file(&spec).await?;
+    let dir = state.paths.exports_dir();
+    let file_name = format!("{}.png", crate::image::crop::safe_name(&name));
+    let name_for_job = file_name.clone();
+    let exported = tauri::async_runtime::spawn_blocking(move || {
+        crate::image::crop::export_file(&source, crop, &dir, &name_for_job)
+    })
+    .await
+    .map_err(|e| AppError::Image(format!("이미지 처리가 중단되었습니다: {e}")))??;
+    Ok(ExportedImage {
+        path: exported.path.to_string_lossy().into_owned(),
+        file_name,
+        size: crate::image::crop::EXPORT_SIZE,
+        bytes: exported.bytes,
+    })
+}
+
 /// Opens the file manager at an image the app manages (e.g. to drag it into
 /// the Developer Portal). Only the app's own image folders are allowed.
 #[tauri::command]
 pub fn reveal_path(app: AppHandle, state: Shared<'_>, path: String) -> Result<()> {
     let target = PathBuf::from(&path).canonicalize()?;
-    let allowed = [state.paths.images_dir(), state.paths.uploads_dir()]
+    let allowed = [
+        state.paths.images_dir(),
+        state.paths.uploads_dir(),
+        state.paths.exports_dir(),
+    ]
         .iter()
         .filter_map(|dir| dir.canonicalize().ok())
         .any(|dir| target.starts_with(dir));

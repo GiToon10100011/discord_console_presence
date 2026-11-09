@@ -69,6 +69,7 @@ pub fn run() {
             commands::images::clear_image_cache,
             commands::images::import_local_image,
             commands::images::search_game_cover,
+            commands::images::export_cropped_image,
             commands::images::reveal_path,
             commands::settings::get_settings,
             commands::settings::update_settings,

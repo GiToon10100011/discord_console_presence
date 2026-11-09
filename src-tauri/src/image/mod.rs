@@ -1,6 +1,7 @@
 pub mod assets;
 pub mod cache;
 pub mod cover;
+pub mod crop;
 pub mod local;
 
 use std::{path::PathBuf, time::Duration};

@@ -347,6 +347,51 @@ impl AppState {
         }
     }
 
+    /// The original file behind an image setting, for tools that need the
+    /// full-size pixels (cropping). A remote image is downloaded into the cache.
+    pub async fn source_file(&self, spec: &ImageSpec) -> Result<std::path::PathBuf> {
+        let none = || AppError::Invalid("이미지가 설정되어 있지 않습니다.".into());
+        let value = |v: &Option<String>| {
+            v.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(str::to_string)
+        };
+        match spec.source {
+            ImageSource::Default => Err(none()),
+            ImageSource::ExternalUrl => {
+                let url = value(&spec.url).ok_or_else(none)?;
+                let entry =
+                    cache::fetch_with(&self.http, &self.images, &url, false, &Default::default())
+                        .await?;
+                Ok(self.images.path(&entry.file))
+            }
+            ImageSource::Uploaded => {
+                local::uploaded_path(&self.paths, &value(&spec.local_path).ok_or_else(none)?)
+            }
+            ImageSource::LocalFile => value(&spec.local_path)
+                .map(std::path::PathBuf::from)
+                .ok_or_else(none),
+            ImageSource::DiscordAsset => {
+                let key = value(&spec.asset_key).ok_or_else(none)?;
+                let app_id = self.settings_snapshot().application_id;
+                let assets = self.assets.list(&self.http, &app_id, false).await?;
+                let asset = assets
+                    .iter()
+                    .find(|a| a.name.eq_ignore_ascii_case(&key))
+                    .ok_or_else(|| {
+                        AppError::NotFound(format!("Asset Key '{key}'가 등록돼 있지 않습니다."))
+                    })?;
+                let entry = cache::fetch_with(
+                    &self.http,
+                    &self.images,
+                    &asset_image_url(&app_id, &asset.id),
+                    false,
+                    &Default::default(),
+                )
+                .await?;
+                Ok(self.images.path(&entry.file))
+            }
+        }
+    }
+
     pub fn connection_state(&self) -> ConnState {
         self.discord.status().state
     }
