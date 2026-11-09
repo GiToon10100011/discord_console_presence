@@ -14,7 +14,7 @@ Discord가 공식 문서화한 **Rich Presence RPC(로컬 IPC)** 로 게임 이�
 
 | 항목 | 상태 |
 |---|---|
-| Rust 테스트 129개 (저장소·세션·Presence 생성·IPC 워커·전송 타임아웃·이미지 캐시·다운로드·에셋 API·커버 검색·크롭) | ✅ 통과 (macOS arm64, 3회 연속) |
+| Rust 테스트 141개 (저장소·세션·Presence 생성·IPC 워커·전송 타임아웃·이미지 캐시·다운로드·에셋 API·커버 검색·크롭) | ✅ 통과 (macOS arm64). CI가 push마다 macOS·Windows에서 다시 실행합니다 |
 | `tsc` 타입 검사, `vite build` | ✅ 통과 |
 | 실제 Tauri 앱 기동 (macOS, `tauri dev`) — 패닉 없음, 라이브러리 8종 시드, 세션 파일 하트비트 | ✅ 확인 |
 | UI 렌더링 — 목(mock) 백엔드 + 헤드리스 Chromium으로 라이브러리·상세·플레이 중·설정 화면 확인 | ✅ 확인 (실제 Tauri 창의 스크린샷은 아님) |
@@ -32,9 +32,12 @@ Discord가 공식 문서화한 **Rich Presence RPC(로컬 IPC)** 로 게임 이�
 | 크롭 내보내기 폴더 — 기본 `Pictures/Console Presence`, 설정에서 폴더 선택·열기 | ✅ 사용자가 직접 실행해 확인 |
 | 실제 Discord가 응답하지 않을 때(요청 제한) 워커가 멈추지 않음 | ✅ 실제 Discord에서 결함을 발견해 수정·확인 |
 | 실제 Discord를 껐다 켰을 때의 재연결·Presence 복원 (macOS) | ✅ 사용자가 직접 실행해 확인 |
-| Windows 빌드 — GitHub Actions(`windows-latest`)에서 타입 검사·Rust 테스트·`tauri build`가 모두 통과하고 `.msi`와 `-setup.exe`가 만들어짐 | ✅ CI로 확인 (설치 파일을 받아 실행해 본 것은 아님) |
-| Windows에서 앱 실행과 Discord 연결 (named pipe) | ❌ **미검증** — Windows PC에서 실행해 보지 못했습니다 |
+| Windows 빌드 — GitHub Actions(`windows-latest`)에서 타입 검사·Rust 테스트·`tauri build`가 모두 통과하고 `.msi`와 `-setup.exe`가 만들어짐 | ✅ CI로 확인 |
+| Windows에서 앱 실행, Discord 연결(named pipe)과 전체 기능 | ✅ 사용자가 Windows PC에서 직접 실행해 확인 |
 | 로그인 시 자동 실행 (autostart, macOS) — 설치한 `.app`에서 켜면 로그인 때 실행됨. `tauri dev`에서는 켜지 말 것(개발용 바이너리가 등록됨) | ✅ 사용자가 직접 실행해 확인 |
+| 앱을 껐다 켰을 때 세션 복원 · 자동 종료 시간 제한 — 시작 시 복원 규칙과 30초 틱의 경계 조건(제한 정확히 도달, 제한 해제, 시계 역행 등) | ⚠️ 단위 테스트 12개로만 확인. 실제 앱을 재시작하거나 12시간을 기다려 확인한 것은 아닙니다 |
+| 에셋이 없을 때 기본 이미지로 대체 | ⚠️ 단위 테스트로만 확인. 실제 Discord 화면에서 본 것은 아닙니다 |
+| Windows에서 Discord가 응답하지 않을 때(요청 제한 등)의 동작 | ⚠️ 재현해 보지 않았습니다. [알려진 한계](#알려진-한계) 참고 |
 
 미검증 항목은 `cargo run --example live_check`로 직접 확인할 수 있습니다 ([아래](#실제-discord로-검증하기)).
 
@@ -134,7 +137,7 @@ npm run tauri build -- --bundles app # .app만
 - `src-tauri/target/release/bundle/macos/Console Presence.app`
 - `src-tauri/target/release/bundle/dmg/Console Presence_0.1.0_aarch64.dmg`
 
-Intel Mac용은 그 Mac에서 빌드하세요. 서명·공증을 하지 않았으므로, 다른 곳에서 내려받은 `.app`은 처음 열 때 차단될 수 있습니다 (*우클릭 → 열기*, 또는 `xattr -dr com.apple.quarantine "/Applications/Console Presence.app"`).
+Intel Mac용은 그 Mac에서 빌드하세요. 번들은 임시(ad-hoc) 서명만 되어 있고(`tauri.conf.json`의 `signingIdentity: "-"`, `codesign --verify --deep --strict` 통과) Apple 개발자 서명·공증은 하지 않았습니다. 그래서 다른 곳에서 내려받은 `.app`은 처음 열 때 차단됩니다. *시스템 설정 → 개인정보 보호 및 보안 → 그래도 열기*(최신 macOS는 우클릭 → 열기로 우회할 수 없습니다), 또는 `xattr -dr com.apple.quarantine "/Applications/Console Presence.app"`로 해결합니다.
 
 ### Windows
 Windows PC에서:
@@ -146,13 +149,24 @@ npm run tauri build
 서명하지 않은 설치 파일이라 Windows SmartScreen이 "알 수 없는 게시자" 경고를 띄울 수 있습니다(*추가 정보 → 실행*).
 TLS는 두 OS 모두 시스템 구현(`native-tls`: Security.framework / SChannel)을 써서 별도 C 빌드 도구가 필요 없습니다.
 
+### 릴리스
+`.github/workflows/release.yml`이 `v*` 태그를 올리면 macOS·Windows에서 검사·테스트·설치 파일 빌드를 한 뒤 **초안(draft) 릴리스**에 `.dmg`, `-setup.exe`, `.msi`를 붙입니다. 초안은 *Publish*를 누르기 전까지 공개되지 않으므로 파일을 받아 먼저 확인할 수 있습니다.
+```bash
+# 1. 세 파일의 version을 같은 값으로 올립니다 (태그와 다르면 워크플로가 첫 단계에서 실패합니다)
+#      package.json · src-tauri/tauri.conf.json · src-tauri/Cargo.toml
+# 2. 커밋하고 태그를 올립니다
+git tag v0.1.0
+git push origin v0.1.0
+```
+릴리스 노트의 틀은 `.github/release-notes.md`입니다.
+
 ## 개발
 
 ```bash
 npm run dev          # 프런트만 (브라우저). Tauri가 없으면 개발용 목 백엔드가 자동으로 켜집니다.
 npm run tauri dev    # 앱 전체
 npx tsc --noEmit     # 타입 검사
-cd src-tauri && cargo test   # Rust 테스트 (129개)
+cd src-tauri && cargo test   # Rust 테스트 (141개)
 ```
 
 ### 실제 Discord로 검증하기
@@ -182,6 +196,7 @@ src-tauri/src/
   commands/                Tauri 커맨드
   state.rs                 공유 상태 (세션 ↔ Discord 연결은 sync_presence 한 곳)
 src-tauri/examples/live_check.rs   실제 Discord 검증 도구
+.github/workflows/         build.yml (push마다 빌드·테스트), release.yml (태그 → 초안 릴리스)
 ```
 
 ### 데이터 위치
@@ -191,8 +206,9 @@ src-tauri/examples/live_check.rs   실제 Discord 검증 도구
 
 ## 알려진 한계
 - 앱을 종료하면 Presence가 사라집니다(Discord가 연결 종료 시 지움). 트레이 상주는 아직 없습니다.
-- 응답 타임아웃은 macOS(Unix 소켓)에만 적용됩니다. Windows는 표준 라이브러리만으로 named pipe 읽기에 타임아웃을 걸 수 없어 `discord-rich-presence`의 기본 클라이언트를 그대로 쓰므로, Discord가 응답하지 않으면 Windows에서는 워커가 멈출 수 있습니다 (Windows는 어차피 미검증).
+- 응답 타임아웃은 macOS(Unix 소켓)에만 적용됩니다. Windows는 표준 라이브러리만으로 named pipe 읽기에 타임아웃을 걸 수 없어 `discord-rich-presence`의 기본 클라이언트를 그대로 쓰므로, Discord가 응답하지 않으면(예: 짧은 시간에 연결을 반복해 요청 제한에 걸렸을 때) Windows에서는 워커가 멈출 수 있습니다. 정상적으로 쓸 때는 문제가 없는 것을 확인했습니다.
+- 설치 파일은 서명·공증을 하지 않았습니다. 릴리스 빌드는 macOS는 Apple Silicon(arm64)용만, Windows는 x64용만 만듭니다. Intel Mac은 그 Mac에서 직접 빌드해야 합니다.
 - 이미지 URL 검사는 호스트 이름·IP 리터럴·리다이렉트 대상까지만 확인합니다. 이름이 사설 IP로 해석되는 경우(DNS 리바인딩)는 막지 않습니다.
 - 커버 검색은 영어 위키백과 의존이라 최신작·비주류 게임은 결과가 없을 수 있습니다.
 - Presence 이미지가 실제로 그려졌는지는 Discord가 알려주지 않으므로, 앱은 *보낸 내용*과 *대체한 이유*만 보고합니다.
-- 앱 아이콘은 Tauri 기본값입니다 (`npm run tauri icon <이미지>`로 교체).
+- 앱 아이콘의 원본은 `src-tauri/icons/icon.svg`(헤더의 `Logo` 컴포넌트와 같은 그림)입니다. 바꾸려면 이 파일을 고치고 `npm run tauri icon src-tauri/icons/icon.svg`로 모든 크기를 다시 만드세요.
