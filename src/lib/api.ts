@@ -78,6 +78,7 @@ export const api = {
   revealPath: (path: string) => call<void>("reveal_path", { path }),
   exportCroppedImage: (spec: ImageSpec, crop: CropRect, name: string) =>
     call<ExportedImage>("export_cropped_image", { spec, crop, name }),
+  openExportDir: () => call<string>("open_export_dir"),
 
   // Settings
   getSettings: () => call<Settings>("get_settings"),

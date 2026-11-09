@@ -1,5 +1,6 @@
+import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ExternalLink, FlaskConical, Plug, Trash2, Unplug } from "lucide-react";
+import { ExternalLink, FlaskConical, FolderOpen, Plug, Trash2, Unplug } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { Banner, Button, Field, Input, Section, Select, Toggle } from "../../components/ui";
@@ -220,6 +221,49 @@ export function SettingsView() {
             />
           </Field>
         </div>
+
+        <Field
+          label="크롭 내보내기 폴더"
+          hint="크롭한 이미지를 저장하는 곳입니다. 기본값은 사진 폴더 안의 Console Presence입니다."
+        >
+          <div className="flex flex-wrap gap-2">
+            <Input
+              readOnly
+              value={draft.exportDir || info?.defaultExportDir || ""}
+              className="min-w-64 flex-1 font-mono text-xs"
+              aria-label="크롭 내보내기 폴더"
+            />
+            <Button
+              onClick={async () => {
+                const picked = await open({
+                  directory: true,
+                  multiple: false,
+                  defaultPath: draft.exportDir || info?.defaultExportDir,
+                });
+                if (typeof picked === "string") set({ exportDir: picked });
+              }}
+            >
+              폴더 선택…
+            </Button>
+            {draft.exportDir && (
+              <Button variant="ghost" onClick={() => set({ exportDir: "" })}>
+                기본값으로
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              disabled={draft.exportDir !== settings.exportDir}
+              title={draft.exportDir !== settings.exportDir ? "먼저 설정을 저장하세요" : undefined}
+              onClick={() =>
+                void api
+                  .openExportDir()
+                  .catch((e: unknown) => toast(e instanceof Error ? e.message : String(e), "error"))
+              }
+            >
+              <FolderOpen className="size-4" /> 열기
+            </Button>
+          </div>
+        </Field>
 
         <div className="rounded-lg border border-line bg-bg/60 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">

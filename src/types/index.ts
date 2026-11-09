@@ -46,6 +46,8 @@ export interface Settings {
   fallbackImageUrl: string;
   overrideActivityName: boolean;
   imageCacheMaxMb: number;
+  /** Folder for cropped images; empty means the default. */
+  exportDir: string;
 }
 
 export interface PresenceConfig {
@@ -204,6 +206,8 @@ export interface AppInfo {
   os: string;
   dataDir: string;
   cacheDir: string;
+  defaultExportDir: string;
+  exportDir: string;
 }
 
 /** The square to keep, in pixels of the original image. */

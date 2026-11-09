@@ -41,6 +41,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fallbackImageUrl: "",
   overrideActivityName: true,
   imageCacheMaxMb: 200,
+  exportDir: "",
 };
 
 const IDLE_STATUS: DiscordStatus = {

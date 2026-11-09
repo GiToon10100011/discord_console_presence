@@ -82,6 +82,7 @@ export function installDevMock() {
     fallbackImageUrl: "",
     overrideActivityName: true,
     imageCacheMaxMb: 200,
+    exportDir: "",
   };
   let games: Game[] = [
     seed("pokemon-za", "Pokémon Legends: Z-A", "Nintendo Switch 2", "Story Progress", "Lumiose City"),
@@ -269,8 +270,17 @@ export function installDevMock() {
             size: 1024,
             bytes: 482_000,
           };
+        case "open_export_dir":
+          return "/Users/me/Pictures/Console Presence";
         case "get_app_info":
-          return { version: "0.1.0", os: "browser-mock", dataDir: "(mock)", cacheDir: "(mock)" };
+          return {
+            version: "0.1.0",
+            os: "browser-mock",
+            dataDir: "(mock)",
+            cacheDir: "(mock)",
+            defaultExportDir: "/Users/me/Pictures/Console Presence",
+            exportDir: settings.exportDir || "/Users/me/Pictures/Console Presence",
+          };
         default:
           throw `devMock: '${cmd}' is not mocked`;
       }

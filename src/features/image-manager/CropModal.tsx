@@ -185,6 +185,9 @@ export function CropModal({
               <p>
                 <b>{result.fileName}</b> 을 만들었습니다 ({result.size}×{result.size}, {Math.round(result.bytes / 1024)}KB).
               </p>
+              <p className="break-all text-xs text-muted">
+                저장 위치: {result.path} · 설정 → 이미지에서 폴더를 바꿀 수 있습니다.
+              </p>
               <ol className="list-decimal space-y-1 pl-5 text-sm">
                 <li>
                   Developer Portal → 앱 → <b>Rich Presence → Art Assets</b>를 엽니다.
