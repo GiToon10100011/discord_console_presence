@@ -28,12 +28,13 @@ Discord가 공식 문서화한 **Rich Presence RPC(로컬 IPC)** 로 게임 이�
 | Discord 에셋 키 — 키가 에셋 ID로 해석되고, 큰 이미지와 작은 이미지가 프로필에 표시됨 (등록된 에셋 1개, 128×128) | ✅ 사용자 육안 확인 |
 | Tauri 앱 창에서 Application ID를 입력해 연결하고 게임을 시작해 Discord에 표시 (`npm run tauri dev`, macOS) | ✅ 사용자가 직접 실행해 확인 |
 | 게임을 바꿀 때의 이미지 교체 (에셋 2개: `pokemon-za` → `ocarina-of-time`) | ✅ 사용자가 직접 실행해 확인 |
-| 크롭 내보내기 — 선택한 영역이 정확히 잘려 1024×1024 PNG로 저장됨 (단위 테스트 7개), 화면 동작은 목 백엔드 + 브라우저로 확인 | ✅ 확인 / ❌ 실제 앱 창에서 직접 써 보는 것은 미검증 |
+| 크롭 내보내기 — 선택한 영역이 정확히 잘려 1024×1024 PNG로 저장됨 (단위 테스트 7개). 실제 앱 창에서도 동작 | ✅ 사용자가 직접 실행해 확인 |
+| 크롭 내보내기 폴더 — 기본 `Pictures/Console Presence`, 설정에서 폴더 선택·열기 | ✅ 사용자가 직접 실행해 확인 |
 | 실제 Discord가 응답하지 않을 때(요청 제한) 워커가 멈추지 않음 | ✅ 실제 Discord에서 결함을 발견해 수정·확인 |
 | 실제 Discord를 껐다 켰을 때의 재연결·Presence 복원 (macOS) | ✅ 사용자가 직접 실행해 확인 |
 | Windows 빌드 — GitHub Actions(`windows-latest`)에서 타입 검사·Rust 테스트·`tauri build`가 모두 통과하고 `.msi`와 `-setup.exe`가 만들어짐 | ✅ CI로 확인 (설치 파일을 받아 실행해 본 것은 아님) |
 | Windows에서 앱 실행과 Discord 연결 (named pipe) | ❌ **미검증** — Windows PC에서 실행해 보지 못했습니다 |
-| 로그인 시 자동 실행 (autostart) | ❌ 미검증 |
+| 로그인 시 자동 실행 (autostart, macOS) — 설치한 `.app`에서 켜면 로그인 때 실행됨. `tauri dev`에서는 켜지 말 것(개발용 바이너리가 등록됨) | ✅ 사용자가 직접 실행해 확인 |
 
 미검증 항목은 `cargo run --example live_check`로 직접 확인할 수 있습니다 ([아래](#실제-discord로-검증하기)).
 
