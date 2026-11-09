@@ -24,6 +24,9 @@ pub struct PresenceConfig {
     pub small_image_text: String,
     /// Unix ms shown as the start of the elapsed timer; `None` = session start.
     pub start_timestamp: Option<i64>,
+    /// Mark the card as live: a "방송 중" badge on the state line that links to
+    /// the stream address from the settings.
+    pub live: bool,
 }
 
 impl PresenceConfig {

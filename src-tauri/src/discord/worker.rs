@@ -924,6 +924,9 @@ mod ipc_tests {
             small_image: None,
             small_text: None,
             start_ms: Some(1_762_646_400_000),
+            state_url: None,
+            large_url: None,
+            button: None,
         }
     }
 

@@ -286,6 +286,13 @@ pub struct Settings {
     /// the registered application name.
     pub override_activity_name: bool,
     pub image_cache_max_mb: u32,
+    /// Public https link to the live stream (Twitch, YouTube, CHZZK, SOOP, ...).
+    /// Used while a session is marked "live".
+    pub stream_url: String,
+    /// Text on the state line while live, after a red dot.
+    pub stream_label: String,
+    /// Label of the button that opens the stream (Discord allows 32 characters).
+    pub stream_button_label: String,
 }
 
 impl Default for Settings {
@@ -303,6 +310,9 @@ impl Default for Settings {
             fallback_image_url: String::new(),
             override_activity_name: true,
             image_cache_max_mb: 200,
+            stream_url: String::new(),
+            stream_label: "방송 중".to_string(),
+            stream_button_label: "방송 보러 가기".to_string(),
         }
     }
 }
@@ -324,6 +334,23 @@ impl Settings {
         self.fallback_image_url = self.fallback_image_url.trim().to_string();
         if !self.fallback_image_url.is_empty() {
             parse_http_url(&self.fallback_image_url)?;
+        }
+        self.stream_url = self.stream_url.trim().to_string();
+        if !self.stream_url.is_empty() {
+            let url = crate::util::public_http_url(&self.stream_url)?;
+            if url.scheme() != "https" || self.stream_url.chars().count() > 512 {
+                return Err(AppError::Invalid(
+                    "방송 주소는 512자 이하의 https 주소여야 합니다.".into(),
+                ));
+            }
+        }
+        self.stream_label = clamp_text(&self.stream_label, 32);
+        if self.stream_label.is_empty() {
+            self.stream_label = "방송 중".to_string();
+        }
+        self.stream_button_label = clamp_text(&self.stream_button_label, 32);
+        if self.stream_button_label.is_empty() {
+            self.stream_button_label = "방송 보러 가기".to_string();
         }
         self.auto_clear_hours = self.auto_clear_hours.min(168);
         self.image_cache_max_mb = self.image_cache_max_mb.clamp(16, 2048);
@@ -457,6 +484,38 @@ mod tests {
 
         s.fallback_image_url = "javascript:alert(1)".into();
         assert!(s.sanitize().is_err());
+    }
+
+    #[test]
+    fn stream_settings_are_validated_and_defaulted() {
+        let mut s = Settings::default();
+        assert_eq!(s.stream_label, "방송 중");
+        s.stream_url = " https://www.twitch.tv/me ".into();
+        s.stream_label = "   ".into();
+        s.stream_button_label = "x".repeat(80);
+        s.sanitize().unwrap();
+        assert_eq!(s.stream_url, "https://www.twitch.tv/me");
+        assert_eq!(s.stream_label, "방송 중", "a blank label falls back to the default");
+        assert_eq!(s.stream_button_label.chars().count(), 32, "Discord allows 32 characters");
+
+        for bad in [
+            "http://www.twitch.tv/me",
+            "https://localhost/x",
+            "https://192.168.0.2/x",
+            "javascript:alert(1)",
+            "not a url",
+        ] {
+            let mut s = Settings {
+                stream_url: bad.into(),
+                ..Settings::default()
+            };
+            assert!(s.sanitize().is_err(), "{bad} must be rejected");
+        }
+        let mut long = Settings {
+            stream_url: format!("https://example.com/{}", "a".repeat(600)),
+            ..Settings::default()
+        };
+        assert!(long.sanitize().is_err(), "a button URL is limited to 512 characters");
     }
 
     #[test]

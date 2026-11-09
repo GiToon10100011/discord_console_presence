@@ -71,6 +71,8 @@ pub fn presence_defaults(game: &Game, settings: &Settings) -> PresenceConfig {
             .clone()
             .unwrap_or_else(|| game.platform.clone()),
         start_timestamp: None,
+        // A new session never starts as a live stream; it is switched on per session.
+        live: false,
     };
     config.normalize();
     config

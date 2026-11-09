@@ -1,4 +1,4 @@
-use discord_rich_presence::activity::{Activity, ActivityType, Assets, Timestamps};
+use discord_rich_presence::activity::{Activity, ActivityType, Assets, Button, Timestamps};
 use serde::Serialize;
 
 use crate::{
@@ -34,6 +34,12 @@ pub struct ActivityPayload {
     pub small_text: Option<String>,
     /// Start of the elapsed timer, Unix ms.
     pub start_ms: Option<i64>,
+    /// Link opened by clicking the state text (the stream, while live).
+    pub state_url: Option<String>,
+    /// Link opened by clicking the large image.
+    pub large_url: Option<String>,
+    /// One button as (label, URL). Other people see it, you do not.
+    pub button: Option<(String, String)>,
 }
 
 impl ActivityPayload {
@@ -48,11 +54,17 @@ impl ActivityPayload {
         if let Some(state) = &self.state {
             activity = activity.state(state.as_str());
         }
+        if let Some(url) = &self.state_url {
+            activity = activity.state_url(url.as_str());
+        }
 
         let mut assets = Assets::new();
         let mut has_assets = false;
         if let Some(image) = &self.large_image {
             assets = assets.large_image(image.as_str());
+            if let Some(url) = &self.large_url {
+                assets = assets.large_url(url.as_str());
+            }
             if let Some(text) = &self.large_text {
                 assets = assets.large_text(text.as_str());
             }
@@ -67,6 +79,10 @@ impl ActivityPayload {
         }
         if has_assets {
             activity = activity.assets(assets);
+        }
+
+        if let Some((label, url)) = &self.button {
+            activity = activity.buttons(vec![Button::new(label.as_str(), url.as_str())]);
         }
 
         if let Some(start) = self.start_ms {
@@ -201,6 +217,15 @@ fn fallback_image(
     None
 }
 
+/// The stream link: a public https address that fits a Discord button (512).
+fn stream_link(url: &str) -> Result<String, String> {
+    let parsed = public_http_url(url).map_err(|e| e.to_string())?;
+    if parsed.scheme() != "https" || url.chars().count() > 512 {
+        return Err("512자 이하의 https 주소여야 합니다.".into());
+    }
+    Ok(url.trim().to_string())
+}
+
 /// Turns a session's presence config into the payload sent to Discord.
 ///
 /// A problem with an image never blocks the presence: the large image falls
@@ -232,13 +257,49 @@ pub fn build_activity(
     };
 
     let large_text = text(&config.large_image_text).or_else(|| text(&config.game_name));
+
+    // While live, the state line says so and points at the stream. Discord
+    // refuses the real "Streaming" activity type over IPC (it accepts only
+    // 0, 2, 3 and 5), so the badge is text plus links and a button.
+    let mut state = text(&config.state);
+    let (mut state_url, mut large_url, mut button) = (None, None, None);
+    if config.live {
+        let label = clamp_text(&settings.stream_label, 32);
+        let label = if label.is_empty() { "방송 중".to_string() } else { label };
+        let badge = format!("🔴 {label}");
+        state = Some(match state {
+            Some(current) => clamp_text(&format!("{badge} · {current}"), TEXT_MAX),
+            None => badge,
+        });
+        let url = settings.stream_url.trim();
+        if url.is_empty() {
+            warnings.push(
+                "방송 주소가 비어 있어 링크와 버튼 없이 문구만 표시합니다 (설정 → 방송).".into(),
+            );
+        } else {
+            match stream_link(url) {
+                Ok(link) => {
+                    let name = clamp_text(&settings.stream_button_label, 32);
+                    let name = if name.is_empty() { "방송 보러 가기".to_string() } else { name };
+                    state_url = Some(link.clone());
+                    large_url = Some(link.clone());
+                    button = Some((name, link));
+                }
+                Err(reason) => warnings.push(format!("방송 주소: {reason}")),
+            }
+        }
+    }
+
     let payload = ActivityPayload {
         name: settings
             .override_activity_name
             .then(|| clamp_text(&config.game_name, TEXT_MAX))
             .filter(|n| !n.is_empty()),
         details: text(&config.details),
-        state: text(&config.state),
+        state,
+        state_url,
+        large_url: large.as_ref().and(large_url),
+        button,
         large_text: large.as_ref().and(large_text),
         small_text: small.as_ref().and_then(|_| text(&config.small_image_text)),
         large_image: large.as_ref().map(|r| r.value.clone()),
@@ -482,6 +543,101 @@ mod tests {
         assert_eq!(json["assets"]["large_text"], "Pokémon Legends: Z-A — Nintendo Switch 2");
         assert_eq!(json["timestamps"]["start"], START / 1000);
         assert!(json.get("buttons").is_none() && json.get("party").is_none());
+    }
+
+    fn live_config() -> PresenceConfig {
+        PresenceConfig {
+            live: true,
+            ..config(asset("pokemon-za"))
+        }
+    }
+
+    fn live_settings(url: &str) -> Settings {
+        Settings {
+            stream_url: url.into(),
+            ..settings()
+        }
+    }
+
+    #[test]
+    fn live_adds_a_badge_links_and_a_button() {
+        let url = "https://www.twitch.tv/me";
+        let (payload, report) = build_activity(
+            &live_config(),
+            START,
+            &live_settings(url),
+            &known(&["pokemon-za"]),
+        );
+        assert_eq!(payload.state.as_deref(), Some("🔴 방송 중 · Lumiose City"));
+        assert_eq!(payload.state_url.as_deref(), Some(url));
+        assert_eq!(payload.large_url.as_deref(), Some(url));
+        assert_eq!(payload.button, Some(("방송 보러 가기".to_string(), url.to_string())));
+        assert!(report.warnings.is_empty());
+
+        // The exact shape Discord accepted when tried against a real client.
+        let json = serde_json::to_value(payload.to_rpc()).unwrap();
+        assert_eq!(json["state_url"], url);
+        assert_eq!(json["assets"]["large_url"], url);
+        assert_eq!(json["buttons"][0]["label"], "방송 보러 가기");
+        assert_eq!(json["buttons"][0]["url"], url);
+        assert_eq!(json["type"], 0, "still Playing: Streaming is refused over IPC");
+    }
+
+    #[test]
+    fn live_without_an_address_shows_the_text_only() {
+        let (payload, report) =
+            build_activity(&live_config(), START, &live_settings(""), &known(&["pokemon-za"]));
+        assert_eq!(payload.state.as_deref(), Some("🔴 방송 중 · Lumiose City"));
+        assert_eq!((payload.state_url, payload.large_url, payload.button), (None, None, None));
+        assert_eq!(report.warnings.len(), 1);
+        assert!(report.warnings[0].contains("방송 주소"));
+    }
+
+    #[test]
+    fn an_unusable_stream_address_is_never_sent() {
+        for bad in ["http://www.twitch.tv/me", "https://localhost/x", "javascript:alert(1)"] {
+            let (payload, report) =
+                build_activity(&live_config(), START, &live_settings(bad), &known(&["pokemon-za"]));
+            assert!(payload.state.as_deref().unwrap().starts_with("🔴"), "{bad}: badge stays");
+            assert_eq!((payload.state_url, payload.large_url, payload.button), (None, None, None), "{bad}");
+            assert_eq!(report.warnings.len(), 1, "{bad}");
+        }
+    }
+
+    #[test]
+    fn not_live_means_no_badge_and_no_links_even_with_an_address_set() {
+        let mut config = live_config();
+        config.live = false;
+        let (payload, _) = build_activity(
+            &config,
+            START,
+            &live_settings("https://www.twitch.tv/me"),
+            &known(&["pokemon-za"]),
+        );
+        assert_eq!(payload.state.as_deref(), Some("Lumiose City"));
+        assert_eq!((payload.state_url, payload.large_url, payload.button), (None, None, None));
+    }
+
+    #[test]
+    fn the_badge_alone_fills_an_empty_state_and_labels_are_bounded() {
+        let mut config = live_config();
+        config.state.clear();
+        let mut settings = live_settings("https://www.twitch.tv/me");
+        settings.stream_label = "L".repeat(50);
+        settings.stream_button_label = "B".repeat(50);
+        let (payload, _) = build_activity(&config, START, &settings, &known(&["pokemon-za"]));
+        assert_eq!(payload.state.as_ref().map(|s| s.chars().count()), Some(2 + 32), "dot, space, 32 chars");
+        assert_eq!(payload.button.unwrap().0.chars().count(), 32);
+    }
+
+    #[test]
+    fn the_large_image_link_needs_a_large_image() {
+        let mut config = live_config();
+        config.large_image = ImageSpec::default();
+        let (payload, _) =
+            build_activity(&config, START, &live_settings("https://www.twitch.tv/me"), &known(&[]));
+        assert_eq!(payload.large_url, None, "no image, nothing to click");
+        assert!(payload.state_url.is_some(), "the state link still works");
     }
 
     #[test]
