@@ -1,8 +1,9 @@
 [package]
 name = "console-presence"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "Show your console game on Discord with Rich Presence"
+authors = ["GiToon10100011"]
+repository = "https://github.com/GiToon10100011/discord_console_presence"
 edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
