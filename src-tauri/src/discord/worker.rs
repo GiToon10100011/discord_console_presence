@@ -8,12 +8,40 @@ use std::{
     time::{Duration, Instant},
 };
 
-use discord_rich_presence::{DiscordIpc, DiscordIpcClient};
+use discord_rich_presence::DiscordIpc;
 use serde::Serialize;
 use serde_json::{json, Value};
 
 use super::activity::ActivityPayload;
 use crate::util::{lock, now_ms};
+
+// On Unix the IPC client has read timeouts (see `transport`). On Windows the
+// crate's own client is used: a named pipe cannot be given a read timeout with
+// std alone, so a Discord that never answers can still stall the worker there.
+#[cfg(unix)]
+use super::transport::{is_timeout, TimedClient as Client};
+#[cfg(not(unix))]
+use discord_rich_presence::DiscordIpcClient as Client;
+
+#[cfg(not(unix))]
+fn is_timeout(_: &discord_rich_presence::error::Error) -> bool {
+    false
+}
+
+fn new_client(application_id: &str, reply_timeout: Duration) -> Client {
+    #[cfg(unix)]
+    {
+        Client::new(application_id, reply_timeout)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = reply_timeout;
+        Client::new(application_id)
+    }
+}
+
+/// How long `probe` waits for Discord to answer.
+const PROBE_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Discord answers an unknown application id with CLOSE code 4000.
 const INVALID_CLIENT_ID: i64 = 4000;
@@ -87,6 +115,9 @@ pub struct WorkerConfig {
     /// Discord allows 5 activity updates per 20 s; stay below it.
     pub rate_window: Duration,
     pub rate_max: usize,
+    /// How long to wait for Discord to answer a command. Discord silently
+    /// drops updates that come too fast and then never replies.
+    pub reply_timeout: Duration,
 }
 
 impl Default for WorkerConfig {
@@ -97,6 +128,7 @@ impl Default for WorkerConfig {
             min_push_spacing: Duration::from_secs(1),
             rate_window: Duration::from_secs(20),
             rate_max: 4,
+            reply_timeout: Duration::from_secs(8),
         }
     }
 }
@@ -170,6 +202,10 @@ impl DiscordHandle {
 enum ConnectError {
     /// Worth retrying (Discord not running yet, still starting, ...).
     Retryable(String),
+    /// Discord is there but did not answer the handshake. Seen when one
+    /// application opens connections too fast; opening more makes it worse,
+    /// so the retry is delayed longer than for `Retryable`.
+    Throttled(String),
     /// Retrying cannot help until the user changes something.
     Fatal(String),
 }
@@ -177,10 +213,13 @@ enum ConnectError {
 impl ConnectError {
     fn message(&self) -> &str {
         match self {
-            Self::Retryable(m) | Self::Fatal(m) => m,
+            Self::Retryable(m) | Self::Throttled(m) | Self::Fatal(m) => m,
         }
     }
 }
+
+/// Retries after an unanswered handshake wait this many reconnect intervals.
+const THROTTLE_BACKOFF: u32 = 5;
 
 fn close_message(frame: &Value) -> (Option<i64>, String) {
     (
@@ -194,8 +233,11 @@ fn close_message(frame: &Value) -> (Option<i64>, String) {
 /// `DiscordIpcClient::connect` discards the handshake reply (the crate marks
 /// rejection handling as a TODO), so the handshake is done by hand here to
 /// read the READY event or the CLOSE frame that explains a rejection.
-fn connect_client(application_id: &str) -> Result<(DiscordIpcClient, DiscordUser), ConnectError> {
-    let mut client = DiscordIpcClient::new(application_id);
+fn connect_client(
+    application_id: &str,
+    reply_timeout: Duration,
+) -> Result<(Client, DiscordUser), ConnectError> {
+    let mut client = new_client(application_id, reply_timeout);
     client.connect_ipc().map_err(|_| {
         ConnectError::Retryable(
             "Discord 데스크톱 앱이 실행 중이 아니거나 IPC에 연결할 수 없습니다.".into(),
@@ -233,13 +275,18 @@ fn connect_client(application_id: &str) -> Result<(DiscordIpcClient, DiscordUser
         Ok((op, _)) => Err(ConnectError::Retryable(format!(
             "예상하지 못한 핸드셰이크 응답입니다 (opcode {op})."
         ))),
+        Err(e) if is_timeout(&e) => Err(ConnectError::Throttled(
+            "Discord가 연결 요청에 응답하지 않습니다. 짧은 시간에 연결을 너무 자주 시도하면 \
+             Discord가 잠시 무시합니다. 잠시 후 자동으로 다시 시도합니다."
+                .into(),
+        )),
         Err(e) => Err(ConnectError::Retryable(format!("핸드셰이크 응답을 읽지 못했습니다: {e}"))),
     }
 }
 
 /// One-off connection check that does not touch the worker or any presence.
 pub fn probe(application_id: &str) -> Result<DiscordUser, String> {
-    match connect_client(application_id) {
+    match connect_client(application_id, PROBE_TIMEOUT) {
         Ok((mut client, user)) => {
             let _ = client.close();
             Ok(user)
@@ -252,6 +299,9 @@ enum Reply {
     Ok,
     /// Discord answered, but refused the activity. The connection is fine.
     Rejected(String),
+    /// No answer in time. The connection may be fine: Discord ignores updates
+    /// that arrive too fast. The heartbeat sends the presence again.
+    Unconfirmed,
     /// The socket closed or broke.
     Lost(String),
 }
@@ -259,7 +309,7 @@ enum Reply {
 /// Reads the answer to the command just sent. Discord answers every
 /// SET_ACTIVITY; the crate itself never reads it, which would hide both
 /// rejected payloads and a closed connection.
-fn read_reply(client: &mut DiscordIpcClient) -> Reply {
+fn read_reply(client: &mut Client) -> Reply {
     for _ in 0..8 {
         match client.recv() {
             Ok((1, frame)) => {
@@ -278,6 +328,7 @@ fn read_reply(client: &mut DiscordIpcClient) -> Reply {
                 let _ = client.send(ping, 4);
             }
             Ok(_) => {}
+            Err(e) if is_timeout(&e) => return Reply::Unconfirmed,
             Err(e) => return Reply::Lost(format!("Discord와의 연결이 끊어졌습니다: {e}")),
         }
     }
@@ -293,7 +344,7 @@ struct Worker {
     /// A fatal handshake error: wait for the next explicit `Connect`.
     blocked: bool,
     desired: Option<ActivityPayload>,
-    client: Option<DiscordIpcClient>,
+    client: Option<Client>,
     dirty: bool,
     next_connect_at: Instant,
     last_push: Option<Instant>,
@@ -402,7 +453,7 @@ impl Worker {
             return;
         };
         lock(&self.status).attempts += 1;
-        match connect_client(&app_id) {
+        match connect_client(&app_id, self.config.reply_timeout) {
             Ok((client, user)) => {
                 self.client = Some(client);
                 self.last_push = None;
@@ -416,6 +467,11 @@ impl Worker {
             }
             Err(ConnectError::Retryable(message)) => {
                 self.next_connect_at = Instant::now() + self.config.reconnect_interval;
+                self.set_state(ConnState::Disconnected, Some(message));
+            }
+            Err(ConnectError::Throttled(message)) => {
+                self.next_connect_at =
+                    Instant::now() + self.config.reconnect_interval * THROTTLE_BACKOFF;
                 self.set_state(ConnState::Disconnected, Some(message));
             }
             Err(ConnectError::Fatal(message)) => {
@@ -507,6 +563,20 @@ impl Worker {
                     s.last_presence = Some(PresenceOutcome {
                         ok: false,
                         message: Some(message),
+                        at: now_ms(),
+                    });
+                });
+            }
+            Reply::Unconfirmed => {
+                self.update(|s| {
+                    s.presence_active = false;
+                    s.last_presence = Some(PresenceOutcome {
+                        ok: false,
+                        message: Some(
+                            "Discord가 응답하지 않았습니다. 업데이트가 너무 잦으면 Discord가 무시할 수 있어 \
+                             잠시 후 자동으로 다시 보냅니다."
+                                .into(),
+                        ),
                         at: now_ms(),
                     });
                 });
@@ -629,6 +699,10 @@ mod ipc_tests {
         Normal,
         RejectClientId,
         RejectActivity,
+        /// Takes the update and never answers, like a rate-limited Discord.
+        Silent,
+        /// Never answers the handshake itself.
+        SilentHandshake,
     }
 
     struct Fake {
@@ -763,6 +837,11 @@ mod ipc_tests {
             return;
         };
         lock(&handshakes).push(handshake);
+        if *lock(&behavior) == Behavior::SilentHandshake {
+            // Keep the connection open without answering.
+            thread::sleep(Duration::from_millis(1500));
+            return;
+        }
         if *lock(&behavior) == Behavior::RejectClientId {
             write_frame(&mut stream, 2, &json!({"code": 4000, "message": "Invalid Client ID"}));
             return;
@@ -801,6 +880,9 @@ mod ipc_tests {
                 1 => {
                     let nonce = frame["nonce"].clone();
                     lock(&received).push(frame);
+                    if *lock(&behavior) == Behavior::Silent {
+                        continue;
+                    }
                     if *lock(&behavior) == Behavior::RejectActivity {
                         write_frame(
                             &mut stream,
@@ -828,6 +910,7 @@ mod ipc_tests {
             min_push_spacing: Duration::from_millis(5),
             rate_window: Duration::from_secs(1),
             rate_max: 100,
+            reply_timeout: Duration::from_millis(300),
         }
     }
 
@@ -988,6 +1071,64 @@ mod ipc_tests {
             .message
             .unwrap()
             .contains("Invalid activity"));
+        handle.shutdown(Duration::from_secs(2));
+    }
+
+    #[test]
+    fn a_discord_that_stops_answering_does_not_hang_the_worker() {
+        // Observed against a real Discord: updates sent too fast are dropped
+        // without any reply, and a blocking read then waits forever.
+        let _guard = lock(&ENV_LOCK);
+        let fake = Fake::new();
+        fake.start();
+        fake.set_behavior(Behavior::Silent);
+        let handle = DiscordHandle::spawn(fast(), |_| {});
+        handle.connect(APP_ID);
+        handle.set_activity(Some(payload("Story Progress")));
+
+        wait_until("the unanswered update is reported", || {
+            handle.status().last_presence.is_some_and(|p| !p.ok)
+        });
+        let status = handle.status();
+        assert_eq!(status.state, ConnState::Connected, "no answer is not a lost connection");
+        assert!(status.last_presence.unwrap().message.unwrap().contains("응답하지 않았습니다"));
+
+        // The worker is still responsive: a disconnect goes through.
+        handle.disconnect();
+        wait_until("the worker answers commands after the timeout", || {
+            handle.status().state == ConnState::Idle
+        });
+
+        // Once Discord answers again, the presence is confirmed.
+        fake.set_behavior(Behavior::Normal);
+        handle.connect(APP_ID);
+        handle.set_activity(Some(payload("Story Progress")));
+        wait_until("presence confirmed after recovery", || {
+            handle.status().last_presence.is_some_and(|p| p.ok)
+        });
+        handle.shutdown(Duration::from_secs(2));
+    }
+
+    #[test]
+    fn an_unanswered_handshake_is_reported_and_recovers_when_discord_answers() {
+        let _guard = lock(&ENV_LOCK);
+        let fake = Fake::new();
+        fake.start();
+        fake.set_behavior(Behavior::SilentHandshake);
+        let handle = DiscordHandle::spawn(fast(), |_| {});
+        handle.connect(APP_ID);
+
+        wait_until("the silent handshake is reported", || {
+            let s = handle.status();
+            s.state == ConnState::Disconnected
+                && s.message.is_some_and(|m| m.contains("응답하지 않습니다"))
+        });
+        assert!(fake.connections.load(Ordering::SeqCst) >= 1);
+
+        fake.set_behavior(Behavior::Normal);
+        wait_until("connected once Discord answers", || {
+            handle.status().state == ConnState::Connected
+        });
         handle.shutdown(Duration::from_secs(2));
     }
 
