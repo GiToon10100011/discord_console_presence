@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+/* Dark by default, with Discord's own palette. */
+@theme {
+  --color-bg: #1e1f22;
+  --color-panel: #2b2d31;
+  --color-raised: #313338;
+  --color-hover: #3a3c43;
+  --color-line: #3f4147;
+  --color-ink: #dbdee1;
+  --color-muted: #949ba4;
+  --color-brand: #5865f2;
+  --color-brand-hover: #4752c4;
+  --color-ok: #23a559;
+  --color-warn: #f0b232;
+  --color-bad: #f23f43;
+  --font-sans: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic",
+    sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+input,
+textarea,
+select {
+  user-select: text;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #1a1b1e;
+  border: 2px solid var(--color-bg);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
