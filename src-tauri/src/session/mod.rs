@@ -99,6 +99,11 @@ pub struct RecentGame {
     pub sessions: u32,
 }
 
+/// The auto-clear limit in milliseconds; `0` hours means "never".
+fn auto_clear_limit(hours: u32) -> Option<i64> {
+    (hours > 0).then(|| i64::from(hours) * 3_600_000)
+}
+
 /// The persisted session state. It never talks to Discord: the connection and
 /// the session are independent, so a dropped connection cannot end a session.
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -183,6 +188,43 @@ impl SessionStore {
             }
             None => false,
         }
+    }
+
+    /// Decides what happens to the session left over from the previous run.
+    ///
+    /// With `keep` it carries on (the user chose to resume where they left
+    /// off), unless it has outlived the auto-clear limit. Otherwise it is
+    /// closed where the app last saw it, not at `now`, so the time the app was
+    /// closed does not count as play time.
+    pub fn restore(&mut self, keep: bool, auto_clear_hours: u32, now: i64) -> Option<SessionRecord> {
+        let active = self.active.as_ref()?;
+        let limit = auto_clear_limit(auto_clear_hours);
+        let expired = limit.is_some_and(|l| now - active.started_at > l);
+        if keep && !expired {
+            return None;
+        }
+        let mut end = active.last_seen_at.max(active.started_at);
+        if let (true, Some(limit)) = (expired, limit) {
+            end = end.min(active.started_at + limit);
+        }
+        self.stop(end.min(now))
+    }
+
+    /// The periodic tick: ends the session once it has run longer than the
+    /// auto-clear limit, otherwise records a heartbeat. Returns whether the
+    /// session was ended.
+    pub fn heartbeat(&mut self, auto_clear_hours: u32, now: i64) -> bool {
+        let limit = auto_clear_limit(auto_clear_hours);
+        let expired = self
+            .active
+            .as_ref()
+            .is_some_and(|a| limit.is_some_and(|l| now - a.started_at > l));
+        if expired {
+            self.stop(now);
+            return true;
+        }
+        self.touch(now);
+        false
     }
 
     pub fn recent_games(&self, now: i64, limit: usize) -> Vec<RecentGame> {
@@ -367,6 +409,112 @@ mod tests {
             store.history.last().unwrap().started_at,
             T0 + (HISTORY_LIMIT as i64 + 24) * 1_000
         );
+    }
+
+    const HOUR: i64 = 3_600_000;
+
+    /// A session started at `T0`, last seen `seen_after` ms later.
+    fn running(seen_after: i64) -> SessionStore {
+        let mut store = SessionStore::default();
+        store.start(&game("a"), presence("A"), T0);
+        store.touch(T0 + seen_after);
+        store
+    }
+
+    #[test]
+    fn restore_keeps_a_recent_session_when_asked_to() {
+        let mut store = running(HOUR);
+        assert!(store.restore(true, 12, T0 + 2 * HOUR).is_none());
+        let active = store.active.as_ref().expect("session must survive a restart");
+        assert_eq!(active.started_at, T0, "the original start time is kept");
+        assert!(store.history.is_empty());
+    }
+
+    #[test]
+    fn restore_closes_the_session_where_the_app_last_saw_it() {
+        let mut store = running(HOUR);
+        let record = store.restore(false, 12, T0 + 5 * HOUR).expect("closed");
+        assert_eq!(record.ended_at, T0 + HOUR, "not at the time of the restart");
+        assert_eq!(record.duration_secs, 3600);
+        assert!(store.active.is_none());
+        assert_eq!(store.history.len(), 1);
+    }
+
+    #[test]
+    fn restore_closes_a_session_that_outlived_the_limit_at_the_limit() {
+        // Last seen 20 h in, limit 12 h: the extra hours are not play time.
+        let mut store = running(20 * HOUR);
+        let record = store.restore(true, 12, T0 + 30 * HOUR).expect("expired");
+        assert_eq!(record.ended_at, T0 + 12 * HOUR);
+        assert_eq!(record.duration_secs, 12 * 3600);
+    }
+
+    #[test]
+    fn restore_closes_an_expired_session_at_the_heartbeat_when_that_is_earlier() {
+        let mut store = running(2 * HOUR);
+        let record = store.restore(true, 12, T0 + 30 * HOUR).expect("expired");
+        assert_eq!(record.ended_at, T0 + 2 * HOUR);
+    }
+
+    #[test]
+    fn restore_never_expires_a_session_when_the_limit_is_off() {
+        let mut store = running(HOUR);
+        assert!(store.restore(true, 0, T0 + 500 * HOUR).is_none());
+        assert!(store.active.is_some());
+    }
+
+    #[test]
+    fn restore_never_ends_a_session_in_the_future() {
+        // A clock that went backwards must not produce a negative duration.
+        let mut store = running(10 * HOUR);
+        let record = store.restore(false, 0, T0 + HOUR).expect("closed");
+        assert_eq!(record.ended_at, T0 + HOUR);
+        assert!(record.duration_secs >= 0);
+    }
+
+    #[test]
+    fn restore_without_a_session_does_nothing() {
+        let mut store = SessionStore::default();
+        assert!(store.restore(false, 12, T0).is_none());
+        assert!(store.history.is_empty());
+    }
+
+    #[test]
+    fn the_limit_is_exclusive_of_the_exact_boundary() {
+        let mut store = running(0);
+        assert!(!store.heartbeat(12, T0 + 12 * HOUR), "exactly 12 h is still running");
+        assert!(store.heartbeat(12, T0 + 12 * HOUR + 1));
+        assert!(store.active.is_none());
+    }
+
+    #[test]
+    fn heartbeat_records_the_time_and_keeps_the_session() {
+        let mut store = running(0);
+        assert!(!store.heartbeat(12, T0 + HOUR));
+        assert_eq!(store.active.as_ref().unwrap().last_seen_at, T0 + HOUR);
+    }
+
+    #[test]
+    fn heartbeat_ends_an_expired_session_into_the_history() {
+        let mut store = running(0);
+        assert!(store.heartbeat(1, T0 + 2 * HOUR));
+        assert!(store.active.is_none());
+        assert_eq!(store.history.len(), 1);
+        assert_eq!(store.history[0].ended_at, T0 + 2 * HOUR);
+    }
+
+    #[test]
+    fn heartbeat_with_the_limit_off_never_ends_a_session() {
+        let mut store = running(0);
+        assert!(!store.heartbeat(0, T0 + 1000 * HOUR));
+        assert!(store.active.is_some());
+    }
+
+    #[test]
+    fn heartbeat_without_a_session_is_harmless() {
+        let mut store = SessionStore::default();
+        assert!(!store.heartbeat(12, T0));
+        assert!(store.active.is_none());
     }
 
     #[test]

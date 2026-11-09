@@ -245,21 +245,7 @@ impl AppState {
         let settings = self.settings_snapshot();
         let now = now_ms();
         let result = self.with_session(|store| {
-            let Some(active) = store.active.clone() else {
-                return;
-            };
-            let limit = (settings.auto_clear_hours > 0)
-                .then(|| i64::from(settings.auto_clear_hours) * 3_600_000);
-            let expired = limit.is_some_and(|l| now - active.started_at > l);
-            if settings.restore_last_session && !expired {
-                return;
-            }
-            // Close it where the app last saw it, not at "now".
-            let mut end = active.last_seen_at.max(active.started_at);
-            if let (true, Some(limit)) = (expired, limit) {
-                end = end.min(active.started_at + limit);
-            }
-            store.stop(end.min(now));
+            store.restore(settings.restore_last_session, settings.auto_clear_hours, now);
         });
         if let Err(e) = result {
             log::error!("could not restore the session: {e}");
@@ -270,20 +256,7 @@ impl AppState {
     pub async fn tick(&self) {
         let settings = self.settings_snapshot();
         let now = now_ms();
-        let limit = (settings.auto_clear_hours > 0)
-            .then(|| i64::from(settings.auto_clear_hours) * 3_600_000);
-        let ended = self.with_session(|store| {
-            let expired = store
-                .active
-                .as_ref()
-                .is_some_and(|a| limit.is_some_and(|l| now - a.started_at > l));
-            if expired {
-                store.stop(now);
-                return true;
-            }
-            store.touch(now);
-            false
-        });
+        let ended = self.with_session(|store| store.heartbeat(settings.auto_clear_hours, now));
         match ended {
             Ok(true) => {
                 self.emit_session();
