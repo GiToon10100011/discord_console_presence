@@ -49,12 +49,19 @@ function cover(name: string): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+// A mix of low-resolution, portrait and high-resolution images, like real covers.
+const SIZES = [
+  [128, 128],
+  [273, 364],
+  [1024, 1024],
+  [250, 354],
+] as const;
 const view = (name: string): ImageView => ({
   status: "ready",
   displayPath: cover(name),
   fullPath: null,
-  width: 1024,
-  height: 1024,
+  width: SIZES[hueOf(name) % SIZES.length][0],
+  height: SIZES[hueOf(name) % SIZES.length][1],
   bytes: 184_320,
   format: "png",
   warnings: [],

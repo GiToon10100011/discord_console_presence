@@ -14,15 +14,29 @@ export function ViewImage({
   loading,
   className,
   showStatus = true,
+  fit = "frame",
 }: {
   view?: ImageView;
   name: string;
   loading?: boolean;
   className?: string;
   showStatus?: boolean;
+  /**
+   * `frame` shows a small or non-square image at its own size on a blurred
+   * copy of itself; `cover` fills the box with a center crop, which is what
+   * Discord does.
+   */
+  fit?: "frame" | "cover";
 }) {
   const hue = hueOf(name || "?");
   const problem = view && (view.status === "unavailable" || view.status === "error");
+  const src = view?.status === "ready" && view.displayPath ? convertFileSrc(view.displayPath) : null;
+  const w = view?.width ?? 0;
+  const h = view?.height ?? 0;
+  // Stretching a 128px or portrait cover over a square makes it soft and cuts
+  // it off, which is what made the library look messy.
+  const framed =
+    fit === "frame" && !!src && w > 0 && h > 0 && (Math.max(w, h) < 400 || Math.abs(w / h - 1) > 0.08);
 
   return (
     <div
@@ -36,13 +50,27 @@ export function ViewImage({
       }
       title={problem ? (view?.message ?? undefined) : undefined}
     >
-      {view?.status === "ready" && view.displayPath ? (
-        <img
-          src={convertFileSrc(view.displayPath)}
-          alt={name}
-          draggable={false}
-          className="size-full object-cover"
-        />
+      {src && framed ? (
+        <>
+          <img
+            src={src}
+            alt=""
+            aria-hidden
+            draggable={false}
+            className="absolute inset-0 size-full scale-125 object-cover opacity-60 blur-2xl"
+          />
+          <div className="relative flex size-full items-center justify-center p-2">
+            <img
+              src={src}
+              alt={name}
+              draggable={false}
+              className="rounded-sm object-contain shadow-lg shadow-black/40"
+              style={{ maxWidth: `min(100%, ${w}px)`, maxHeight: `min(100%, ${h}px)` }}
+            />
+          </div>
+        </>
+      ) : src ? (
+        <img src={src} alt={name} draggable={false} className="size-full object-cover" />
       ) : (
         <div className="flex size-full items-center justify-center">
           {loading ? (

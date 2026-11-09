@@ -39,7 +39,7 @@ export function GameCard({
             localPath: game.localImagePath,
           }}
           name={game.name}
-          className={cx("w-full", compact ? "aspect-square" : "aspect-[4/5]")}
+          className="aspect-square w-full"
         />
         <div className="space-y-1.5 p-3">
           <h3 className={cx("line-clamp-2 font-semibold leading-snug", compact ? "text-xs" : "text-sm")}>

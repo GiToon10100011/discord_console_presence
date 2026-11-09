@@ -27,7 +27,7 @@ Discord가 공식 문서화한 **Rich Presence RPC(로컬 IPC)** 로 게임 이�
 | **프로필 카드에서 실제로 보이는 모습** — 외부 URL 이미지가 표시되고, 경과 시간이 올라감 | ✅ 사용자 육안 확인 (macOS Discord, 2026-11-09). 타이머의 시작값이 정확히 1:30:00 근처인지는 따로 확인하지 않았습니다 |
 | Discord 에셋 키 — 키가 에셋 ID로 해석되고, 큰 이미지와 작은 이미지가 프로필에 표시됨 (등록된 에셋 1개, 128×128) | ✅ 사용자 육안 확인 |
 | Tauri 앱 창에서 Application ID를 입력해 연결하고 게임을 시작해 Discord에 표시 (`npm run tauri dev`, macOS) | ✅ 사용자가 직접 실행해 확인 |
-| 게임을 바꿀 때의 이미지 교체 | ❌ **미검증** — 등록된 에셋이 1개뿐이라 확인할 수 없었습니다 |
+| 게임을 바꿀 때의 이미지 교체 (에셋 2개: `pokemon-za` → `ocarina-of-time`) | ✅ 사용자가 직접 실행해 확인 |
 | 실제 Discord가 응답하지 않을 때(요청 제한) 워커가 멈추지 않음 | ✅ 실제 Discord에서 결함을 발견해 수정·확인 |
 | 실제 Discord를 껐다 켰을 때의 재연결·Presence 복원 (macOS) | ✅ 사용자가 직접 실행해 확인 |
 | Windows 빌드 — GitHub Actions(`windows-latest`)에서 타입 검사·Rust 테스트·`tauri build`가 모두 통과하고 `.msi`와 `-setup.exe`가 만들어짐 | ✅ CI로 확인 (설치 파일을 받아 실행해 본 것은 아님) |

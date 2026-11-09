@@ -27,6 +27,7 @@ export function DiscordPreview({ config, startMs }: { config: PresenceConfig; st
             loading={large.loading}
             className="size-[84px] rounded-lg"
             showStatus={false}
+            fit="cover"
           />
           {hasSmall && (
             <ViewImage
@@ -34,6 +35,7 @@ export function DiscordPreview({ config, startMs }: { config: PresenceConfig; st
               name={config.gameName}
               className="absolute -bottom-1.5 -right-1.5 size-7 rounded-full border-[3px] border-[#111214]"
               showStatus={false}
+              fit="cover"
             />
           )}
         </div>
