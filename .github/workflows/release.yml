@@ -1,6 +1,6 @@
 name: release
 
-# Pushing a tag such as v0.1.0 builds the installers and attaches them to a
+# Pushing a tag such as v1.0.0 builds the installers and attaches them to a
 # DRAFT GitHub release. Nothing is published until someone presses "Publish"
 # on the draft, so the files can be tried first.
 on:

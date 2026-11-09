@@ -135,7 +135,7 @@ npm run tauri build -- --bundles app # .app만
 ```
 결과물 (Apple Silicon에서 확인):
 - `src-tauri/target/release/bundle/macos/Console Presence.app`
-- `src-tauri/target/release/bundle/dmg/Console Presence_0.1.0_aarch64.dmg`
+- `src-tauri/target/release/bundle/dmg/Console Presence_1.0.0_aarch64.dmg`
 
 Intel Mac용은 그 Mac에서 빌드하세요. 번들은 임시(ad-hoc) 서명만 되어 있고(`tauri.conf.json`의 `signingIdentity: "-"`, `codesign --verify --deep --strict` 통과) Apple 개발자 서명·공증은 하지 않았습니다. 그래서 다른 곳에서 내려받은 `.app`은 처음 열 때 차단됩니다. *시스템 설정 → 개인정보 보호 및 보안 → 그래도 열기*(최신 macOS는 우클릭 → 열기로 우회할 수 없습니다), 또는 `xattr -dr com.apple.quarantine "/Applications/Console Presence.app"`로 해결합니다.
 
@@ -155,8 +155,8 @@ TLS는 두 OS 모두 시스템 구현(`native-tls`: Security.framework / SChanne
 # 1. 세 파일의 version을 같은 값으로 올립니다 (태그와 다르면 워크플로가 첫 단계에서 실패합니다)
 #      package.json · src-tauri/tauri.conf.json · src-tauri/Cargo.toml
 # 2. 커밋하고 태그를 올립니다
-git tag v0.1.0
-git push origin v0.1.0
+git tag v1.0.0
+git push origin v1.0.0
 ```
 릴리스 노트의 틀은 `.github/release-notes.md`입니다.
 
@@ -212,3 +212,6 @@ src-tauri/examples/live_check.rs   실제 Discord 검증 도구
 - 커버 검색은 영어 위키백과 의존이라 최신작·비주류 게임은 결과가 없을 수 있습니다.
 - Presence 이미지가 실제로 그려졌는지는 Discord가 알려주지 않으므로, 앱은 *보낸 내용*과 *대체한 이유*만 보고합니다.
 - 앱 아이콘의 원본은 `src-tauri/icons/icon.svg`(헤더의 `Logo` 컴포넌트와 같은 그림)입니다. 바꾸려면 이 파일을 고치고 `npm run tauri icon src-tauri/icons/icon.svg`로 모든 크기를 다시 만드세요.
+
+## 라이선스
+[MIT](LICENSE). Discord는 Discord Inc.의 상표이며, 이 프로젝트는 Discord와 제휴하거나 보증을 받은 것이 아닙니다. 게임 이름·표지 이미지의 권리는 각 권리자에게 있고, 이 저장소에는 표지 이미지를 포함하지 않습니다.

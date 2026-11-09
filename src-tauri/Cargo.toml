@@ -1,8 +1,9 @@
 [package]
 name = "console-presence"
-version = "0.1.0"
+version = "1.0.0"
 description = "Show your console game on Discord with Rich Presence"
 authors = ["GiToon10100011"]
+license = "MIT"
 repository = "https://github.com/GiToon10100011/discord_console_presence"
 edition = "2024"
 
