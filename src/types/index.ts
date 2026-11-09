@@ -46,6 +46,9 @@ export interface Settings {
   fallbackImageUrl: string;
   overrideActivityName: boolean;
   imageCacheMaxMb: number;
+  streamUrl: string;
+  streamLabel: string;
+  streamButtonLabel: string;
 }
 
 export interface PresenceConfig {
@@ -57,6 +60,7 @@ export interface PresenceConfig {
   smallImage: ImageSpec;
   smallImageText: string;
   startTimestamp: number | null;
+  live: boolean;
 }
 
 export interface Session {
@@ -204,4 +208,18 @@ export interface AppInfo {
   os: string;
   dataDir: string;
   cacheDir: string;
+}
+
+/** The square to keep, in pixels of the original image. */
+export interface CropRect {
+  x: number;
+  y: number;
+  size: number;
+}
+
+export interface ExportedImage {
+  path: string;
+  fileName: string;
+  size: number;
+  bytes: number;
 }

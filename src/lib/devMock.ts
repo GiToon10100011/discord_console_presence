@@ -82,6 +82,9 @@ export function installDevMock() {
     fallbackImageUrl: "",
     overrideActivityName: true,
     imageCacheMaxMb: 200,
+    streamUrl: "https://www.twitch.tv/example",
+    streamLabel: "방송 중",
+    streamButtonLabel: "방송 보러 가기",
   };
   let games: Game[] = [
     seed("pokemon-za", "Pokémon Legends: Z-A", "Nintendo Switch 2", "Story Progress", "Lumiose City"),
@@ -124,6 +127,7 @@ export function installDevMock() {
     smallImage: game.smallImage ?? { source: "default" },
     smallImageText: game.smallImageText ?? game.platform,
     startTimestamp: null,
+    live: false,
   });
 
   const setDiscord = (changes: Partial<DiscordStatus>) => {
@@ -262,6 +266,13 @@ export function installDevMock() {
           };
         case "clear_image_cache":
           return { entries: 0, bytes: 0, maxBytes: 200 * 1024 * 1024, dir: "" };
+        case "export_cropped_image":
+          return {
+            path: `/mock/exports/${args.name}.png`,
+            fileName: `${String(args.name).toLowerCase().replace(/[^a-z0-9_-]+/g, "-")}.png`,
+            size: 1024,
+            bytes: 482_000,
+          };
         case "get_app_info":
           return { version: "0.1.0", os: "browser-mock", dataDir: "(mock)", cacheDir: "(mock)" };
         default:

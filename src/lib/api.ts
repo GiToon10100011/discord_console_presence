@@ -9,7 +9,9 @@ import type {
   CacheStats,
   ConnectionTest,
   CoverCandidate,
+  CropRect,
   DiscordStatus,
+  ExportedImage,
   Game,
   ImageSource,
   ImageSpec,
@@ -74,6 +76,8 @@ export const api = {
     call<ImportedImage>("import_local_image", { path, mode }),
   searchGameCover: (query: string) => call<CoverCandidate[]>("search_game_cover", { query }),
   revealPath: (path: string) => call<void>("reveal_path", { path }),
+  exportCroppedImage: (spec: ImageSpec, crop: CropRect, name: string) =>
+    call<ExportedImage>("export_cropped_image", { spec, crop, name }),
 
   // Settings
   getSettings: () => call<Settings>("get_settings"),

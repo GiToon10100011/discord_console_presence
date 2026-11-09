@@ -1,6 +1,6 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { FolderOpen, Link2, RefreshCw, Search, ShieldCheck } from "lucide-react";
+import { Crop, FolderOpen, Link2, RefreshCw, Search, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 
 import { Banner, Button, Field, Input, Segmented } from "../../components/ui";
@@ -9,6 +9,7 @@ import { api } from "../../lib/api";
 import { formatBytes } from "../../lib/format";
 import type { AssetCheck, ImageSource, ImageSpec } from "../../types";
 import { CoverSearch } from "./CoverSearch";
+import { CropModal } from "./CropModal";
 import { useImageView } from "./useImageView";
 import { ViewImage } from "./Thumb";
 
@@ -41,6 +42,7 @@ export function ImagePicker({
   const [check, setCheck] = useState<AssetCheck | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [coverOpen, setCoverOpen] = useState(false);
+  const [cropOpen, setCropOpen] = useState(false);
 
   const patch = (changes: Partial<ImageSpec>) => {
     setCheck(null);
@@ -104,6 +106,11 @@ export function ImagePicker({
             <p className="text-center text-[11px] text-muted">
               {view.width}×{view.height} · {formatBytes(view.bytes ?? 0)}
             </p>
+          )}
+          {view?.status === "ready" && (
+            <Button size="sm" className="w-full" onClick={() => setCropOpen(true)}>
+              <Crop className="size-3.5" /> 크롭
+            </Button>
           )}
         </div>
 
@@ -235,6 +242,9 @@ export function ImagePicker({
         </div>
       </div>
 
+      {cropOpen && view && (
+        <CropModal spec={value} view={view} gameName={gameName} onClose={() => setCropOpen(false)} />
+      )}
       {coverOpen && (
         <CoverSearch
           initialQuery={gameName}

@@ -168,6 +168,46 @@ export function SettingsView() {
         </Field>
       </Section>
 
+      <Section
+        title="방송 (OBS 등)"
+        description="게임 상세에서 '방송 중으로 표시'를 켜면 Discord 카드에 🔴 방송 중 문구와 방송 링크가 붙습니다."
+      >
+        <Field
+          label="방송 주소"
+          hint="Twitch·YouTube·치지직·SOOP 등 공개 https 주소. 상태 문구, 큰 이미지, 버튼이 이 주소로 연결됩니다."
+        >
+          <Input
+            value={draft.streamUrl}
+            onChange={(e) => set({ streamUrl: e.target.value })}
+            placeholder="https://www.twitch.tv/내채널"
+            inputMode="url"
+            spellCheck={false}
+          />
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="상태 문구" hint="🔴 뒤에 붙는 글">
+            <Input
+              value={draft.streamLabel}
+              maxLength={32}
+              onChange={(e) => set({ streamLabel: e.target.value })}
+            />
+          </Field>
+          <Field label="버튼 문구">
+            <Input
+              value={draft.streamButtonLabel}
+              maxLength={32}
+              onChange={(e) => set({ streamButtonLabel: e.target.value })}
+            />
+          </Field>
+        </div>
+        <Banner kind="info">
+          <p>
+            Discord는 공식 ‘스트리밍’ 활동을 이 방식으로는 허용하지 않아(실제 Discord로 확인) 문구와 링크로 표시합니다.
+            버튼은 <b>다른 사람에게만 보이고 본인 프로필에는 보이지 않습니다.</b>
+          </p>
+        </Banner>
+      </Section>
+
       <Section title="기본 게임 상태" description="게임에 Details/State가 비어 있을 때 사용합니다.">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Details">
