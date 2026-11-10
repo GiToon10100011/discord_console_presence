@@ -28,7 +28,6 @@ export interface Game {
   smallImage?: ImageSpec | null;
   smallImageText?: string | null;
   favorite: boolean;
-  builtin: boolean;
   createdAt: number;
   updatedAt: number;
 }

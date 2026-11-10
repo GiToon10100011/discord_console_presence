@@ -16,7 +16,7 @@ Discord가 공식 문서화한 **Rich Presence RPC(로컬 IPC)** 로 게임 이�
 |---|---|
 | Rust 테스트 141개 (저장소·세션·Presence 생성·IPC 워커·전송 타임아웃·이미지 캐시·다운로드·에셋 API·커버 검색·크롭) | ✅ 통과 (macOS arm64). CI가 push마다 macOS·Windows에서 다시 실행합니다 |
 | `tsc` 타입 검사, `vite build` | ✅ 통과 |
-| 실제 Tauri 앱 기동 (macOS, `tauri dev`) — 패닉 없음, 라이브러리 8종 시드, 세션 파일 하트비트 | ✅ 확인 |
+| 실제 Tauri 앱 기동 (macOS, `tauri dev`) — 패닉 없음, 세션 파일 하트비트 | ✅ 확인 |
 | UI 렌더링 — 목(mock) 백엔드 + 헤드리스 Chromium으로 라이브러리·상세·플레이 중·설정 화면 확인 | ✅ 확인 (실제 Tauri 창의 스크린샷은 아님) |
 | 실제 Discord 클라이언트와 IPC 핸드셰이크 — 존재하지 않는 Application ID는 `CLOSE 4000 "Invalid Client ID"`로 응답하고, 앱이 이를 재시도 불가 오류로 표시 | ✅ 확인 |
 | 유효한 Application ID로 Presence 전송 — 실제 Discord가 수락하고 처리한 활동을 응답으로 돌려줌 | ✅ 확인 |
@@ -65,10 +65,13 @@ Discord 데스크톱 앱이 켜져 있어야 합니다. 나중에 켜거나 재�
 ### 4. Discord 에셋(썸네일) 등록
 1. Developer Portal → 앱 → **Rich Presence → Art Assets** → 이미지를 업로드합니다 (1024×1024 권장, 앱당 최대 300개).
 2. **에셋 이름이 Asset Key**입니다. 포털이 소문자로 저장하므로 소문자로 쓰세요.
-3. 앱에서 게임의 **Asset Key**에 같은 이름을 입력하고 **확인**을 누르면 등록 여부를 검사합니다. 기본 게임 8종은 `pokemon-za`, `mario-kart-world`, `zelda-totk`, `smash-ultimate`, `persona-5-royal`, `elden-ring`, `monster-hunter-wilds`, `cyberpunk-2077` 키를 기대합니다. 업로드하지 않았다면 기본 이미지로 대체되고 경고가 표시됩니다.
+3. 앱에서 게임의 **Asset Key**에 같은 이름을 입력하고 **확인**을 누르면 등록 여부를 검사합니다. 업로드하지 않은 키를 입력하면 기본 이미지로 대체되고 경고가 표시됩니다.
    방금 올린 에셋도 **확인**이 바로 인식합니다. Discord의 에셋 목록 주소는 CDN이 응답을 최대 10분 캐시해서(`s-maxage=600`) 일반 요청으로는 새 에셋이 한참 뒤에 보이는데, 앱은 캐시를 우회해서 조회합니다.
 
 > 커버 이미지는 이 저장소에 포함하지 않습니다. 게임 커버는 저작물이므로 각자 가진 이미지를 직접 업로드하세요.
+
+### 5. 게임 추가
+라이브러리는 **처음에 비어 있습니다.** 샘플 게임은 들어 있지 않고, **게임 추가**로 게임 이름·플랫폼·썸네일을 직접 등록합니다. 게임을 열어 **플레이 시작**을 누르면 Discord에 표시됩니다.
 
 ## 이미지 소스
 
@@ -191,7 +194,7 @@ src/                       React 앱
 src-tauri/src/
   discord/                 IPC 워커(연결·재연결·하트비트), Presence 생성
   session/                 세션 로직 (Discord와 독립)
-  storage/                 원자적 JSON 저장소, 모델, 기본 게임
+  storage/                 원자적 JSON 저장소, 모델
   image/                   캐시, 다운로드, 에셋 조회, 커버 검색, 로컬 가져오기
   commands/                Tauri 커맨드
   state.rs                 공유 상태 (세션 ↔ Discord 연결은 sync_presence 한 곳)

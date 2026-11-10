@@ -112,10 +112,7 @@ impl AppState {
         }
 
         let library_store = JsonStore::<Library>::new(paths.library_file());
-        let mut library = library_store.load();
-        if library.seed_defaults() {
-            library_store.save(&library)?;
-        }
+        let library = library_store.load();
 
         let session_store = JsonStore::<SessionStore>::new(paths.session_file());
         let session = session_store.load();

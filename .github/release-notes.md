@@ -20,7 +20,7 @@ Intel Mac용 빌드는 포함되어 있지 않습니다.
 1. Discord **데스크톱 앱**을 켭니다.
 2. [Discord Developer Portal](https://discord.com/developers/applications)에서 앱을 만들고 **Application ID**를 복사합니다.
 3. Console Presence → **설정**에 붙여 넣고 **저장 후 연결**을 누릅니다.
-4. 라이브러리에서 게임을 골라 **시작**합니다.
+4. 라이브러리는 처음에 비어 있습니다. **게임 추가**로 게임을 등록한 뒤, 게임을 열어 **플레이 시작**을 누릅니다.
 
 썸네일은 Developer Portal의 **Rich Presence → Art Assets**에 올린 이미지의 이름을 게임의 *Asset Key*로 입력하거나, 공개 이미지 URL을 쓰면 됩니다. 앱의 **크롭** 기능으로 Discord에 보일 정사각형 영역을 골라 PNG로 내보낼 수 있습니다 (포털 업로드는 직접 해야 합니다).
 

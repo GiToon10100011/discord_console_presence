@@ -5,8 +5,6 @@ use crate::{
     util::{non_empty, now_ms, parse_http_url, slugify},
 };
 
-const DEFAULT_GAMES_JSON: &str = include_str!("default_games.json");
-
 /// Discord limits `details`, `state` and hover texts to 128 characters.
 pub const TEXT_MAX: usize = 128;
 const NAME_MAX: usize = 100;
@@ -108,7 +106,6 @@ pub struct Game {
     pub small_image: Option<ImageSpec>,
     pub small_image_text: Option<String>,
     pub favorite: bool,
-    pub builtin: bool,
     pub created_at: i64,
     pub updated_at: i64,
 }
@@ -166,9 +163,6 @@ impl Game {
 pub struct Library {
     pub version: u32,
     pub games: Vec<Game>,
-    /// Ids of bundled games that were already offered, so a game the user
-    /// deleted is not resurrected on the next launch.
-    pub seeded_ids: Vec<String>,
 }
 
 impl Default for Library {
@@ -176,37 +170,11 @@ impl Default for Library {
         Self {
             version: 1,
             games: Vec::new(),
-            seeded_ids: Vec::new(),
         }
     }
-}
-
-pub fn default_games() -> Vec<Game> {
-    serde_json::from_str(DEFAULT_GAMES_JSON).expect("bundled default_games.json is valid")
 }
 
 impl Library {
-    /// Adds bundled games that were never offered before. Returns whether anything changed.
-    pub fn seed_defaults(&mut self) -> bool {
-        let now = now_ms();
-        let mut changed = false;
-        for mut game in default_games() {
-            if self.seeded_ids.contains(&game.id) {
-                continue;
-            }
-            self.seeded_ids.push(game.id.clone());
-            changed = true;
-            if self.games.iter().any(|g| g.id == game.id) {
-                continue;
-            }
-            game.builtin = true;
-            game.created_at = now;
-            game.updated_at = now;
-            self.games.push(game);
-        }
-        changed
-    }
-
     pub fn find(&self, id: &str) -> Option<&Game> {
         self.games.iter().find(|g| g.id == id)
     }
@@ -232,7 +200,6 @@ impl Library {
             game.id.clone()
         };
         game.id = self.unique_id(&base);
-        game.builtin = false;
         game.created_at = now;
         game.updated_at = now;
         self.games.push(game.clone());
@@ -247,7 +214,6 @@ impl Library {
             .iter_mut()
             .find(|g| g.id == game.id)
             .ok_or_else(|| AppError::NotFound(format!("게임을 찾을 수 없습니다: {}", game.id)))?;
-        game.builtin = slot.builtin;
         game.created_at = slot.created_at;
         game.updated_at = now_ms();
         *slot = game.clone();
@@ -358,29 +324,29 @@ mod tests {
     }
 
     #[test]
-    fn bundled_games_parse_and_have_unique_ids() {
-        let games = default_games();
-        assert_eq!(games.len(), 8);
-        let mut ids: Vec<_> = games.iter().map(|g| g.id.as_str()).collect();
-        ids.sort_unstable();
-        ids.dedup();
-        assert_eq!(ids.len(), 8, "ids must be unique");
-        for g in &games {
-            assert_eq!(g.image_source, ImageSource::DiscordAsset, "{}", g.id);
-            assert!(g.asset_key.as_deref().is_some_and(|k| !k.is_empty()), "{}", g.id);
-        }
+    fn a_new_library_starts_empty() {
+        assert!(Library::default().games.is_empty());
     }
 
     #[test]
-    fn seeding_is_idempotent_and_does_not_resurrect_deleted_games() {
-        let mut lib = Library::default();
-        assert!(lib.seed_defaults());
-        assert_eq!(lib.games.len(), 8);
-        assert!(!lib.seed_defaults(), "second seed is a no-op");
-
-        lib.remove("elden-ring").unwrap();
-        assert!(!lib.seed_defaults());
-        assert!(lib.find("elden-ring").is_none());
+    fn a_library_saved_by_an_older_version_still_loads() {
+        // Earlier builds seeded sample games and wrote `builtin` / `seededIds`.
+        // Those fields are gone; the games themselves must survive.
+        let json = r#"{
+            "version": 1,
+            "games": [{
+                "id": "elden-ring", "name": "Elden Ring", "platform": "PlayStation 5",
+                "details": "", "state": "Limgrave", "imageSource": "discord_asset",
+                "assetKey": "elden-ring", "favorite": true, "builtin": true,
+                "createdAt": 1762646400000, "updatedAt": 1762646400000
+            }],
+            "seededIds": ["elden-ring", "pokemon-za"]
+        }"#;
+        let lib: Library = serde_json::from_str(json).expect("old files must keep loading");
+        assert_eq!(lib.games.len(), 1);
+        let game = lib.find("elden-ring").unwrap();
+        assert_eq!(game.state, "Limgrave");
+        assert!(game.favorite);
     }
 
     #[test]
@@ -390,7 +356,6 @@ mod tests {
         let b = lib.add(game("Hades")).unwrap();
         assert_eq!(a.id, "hades");
         assert_eq!(b.id, "hades-2");
-        assert!(!a.builtin);
     }
 
     #[test]
@@ -411,16 +376,13 @@ mod tests {
     #[test]
     fn update_keeps_identity_fields() {
         let mut lib = Library::default();
-        lib.seed_defaults();
-        let mut edited = lib.find("elden-ring").unwrap().clone();
-        let created = edited.created_at;
+        let added = lib.add(game("Elden Ring")).unwrap();
+        let mut edited = added.clone();
         edited.state = "Caelid".into();
-        edited.builtin = false; // callers must not be able to change this
-        edited.created_at = 1;
+        edited.created_at = 1; // callers must not be able to change this
         let saved = lib.update(edited).unwrap();
         assert_eq!(saved.state, "Caelid");
-        assert!(saved.builtin);
-        assert_eq!(saved.created_at, created);
+        assert_eq!(saved.created_at, added.created_at);
     }
 
     #[test]

@@ -1,4 +1,4 @@
-import { Clock, Plus, Search, Star } from "lucide-react";
+import { Clock, Gamepad2, Plus, Search, Star } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button, Input, Segmented, cx } from "../../components/ui";
@@ -116,16 +116,23 @@ export function LibraryView({ onOpen }: { onOpen: (gameId: string) => void }) {
           </div>
         )}
 
-        {visible.length === 0 ? (
+        {ready && games.length === 0 ? (
+          <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-line py-16 text-center">
+            <Gamepad2 className="size-10 text-brand" />
+            <div className="space-y-1">
+              <p className="text-base font-semibold">아직 등록한 게임이 없습니다</p>
+              <p className="text-sm text-muted">
+                플레이하는 게임을 추가하면 Discord 프로필에 지금 하는 게임으로 표시할 수 있습니다.
+              </p>
+            </div>
+            <Button variant="primary" onClick={() => setAdding(true)}>
+              <Plus className="size-4" /> 게임 추가
+            </Button>
+          </div>
+        ) : visible.length === 0 ? (
           <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-line py-16 text-center">
             {tab === "favorites" ? <Star className="size-8 text-muted" /> : <Search className="size-8 text-muted" />}
-            <p className="text-sm text-muted">
-              {!ready
-                ? "불러오는 중…"
-                : games.length === 0
-                  ? "라이브러리가 비어 있습니다. 게임을 추가해 보세요."
-                  : "조건에 맞는 게임이 없습니다."}
-            </p>
+            <p className="text-sm text-muted">{!ready ? "불러오는 중…" : "조건에 맞는 게임이 없습니다."}</p>
           </div>
         ) : (
           <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(170px,1fr))]">

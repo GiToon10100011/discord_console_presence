@@ -32,7 +32,6 @@ const seed = (id: string, name: string, platform: string, details: string, state
   smallImage: null,
   smallImageText: null,
   favorite: false,
-  builtin: true,
   createdAt: NOW,
   updatedAt: NOW,
 } as Game);
@@ -84,7 +83,9 @@ export function installDevMock() {
     imageCacheMaxMb: 200,
     exportDir: "",
   };
-  let games: Game[] = [
+  // `?empty` previews the first run, when the library has no games yet.
+  const empty = new URLSearchParams(window.location.search).has("empty");
+  let games: Game[] = empty ? [] : [
     seed("pokemon-za", "Pokémon Legends: Z-A", "Nintendo Switch 2", "Story Progress", "Lumiose City"),
     seed("mario-kart-world", "Mario Kart World", "Nintendo Switch 2", "Grand Prix", "150cc"),
     seed("zelda-totk", "The Legend of Zelda: Tears of the Kingdom", "Nintendo Switch", "Exploring Hyrule", "Hyrule Field"),
@@ -94,12 +95,14 @@ export function installDevMock() {
     seed("monster-hunter-wilds", "Monster Hunter Wilds", "PlayStation 5", "Hunting", "Windward Plains"),
     seed("cyberpunk-2077", "Cyberpunk 2077", "Xbox Series X|S", "Main Story", "Night City"),
   ];
-  games[5].favorite = true;
+  if (!empty) games[5].favorite = true;
   let session: Session | null = null;
-  const recent: RecentGame[] = [
-    { gameId: "elden-ring", lastPlayedAt: NOW - 3 * 3_600_000, totalSecs: 9_200, sessions: 3 },
-    { gameId: "zelda-totk", lastPlayedAt: NOW - 26 * 3_600_000, totalSecs: 4_100, sessions: 2 },
-  ];
+  const recent: RecentGame[] = empty
+    ? []
+    : [
+        { gameId: "elden-ring", lastPlayedAt: NOW - 3 * 3_600_000, totalSecs: 9_200, sessions: 3 },
+        { gameId: "zelda-totk", lastPlayedAt: NOW - 26 * 3_600_000, totalSecs: 4_100, sessions: 2 },
+      ];
   let discord: DiscordStatus = {
     state: "connected",
     applicationId: settings.applicationId,
@@ -193,7 +196,7 @@ export function installDevMock() {
           return game;
         }
         case "add_game": {
-          const game = { ...seed("new", args.game.name, args.game.platform, "", ""), ...args.game, builtin: false };
+          const game = { ...seed("new", args.game.name, args.game.platform, "", ""), ...args.game };
           game.id = game.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "game";
           games = [...games, game];
           return game;
@@ -212,6 +215,9 @@ export function installDevMock() {
               ...view("Elden Ring"),
               warnings: [],
             };
+          // Like the real backend: an empty key is "no image", not a missing asset.
+          if (spec.source === "discord_asset" && !(spec.assetKey ?? "").trim())
+            return { ...view(""), status: "none", displayPath: null, fullPath: null, message: null };
           if (spec.source === "discord_asset" && !["pokemon-za", "zelda-totk", "mario-kart-world"].includes(spec.assetKey ?? ""))
             return {
               ...view(""),
